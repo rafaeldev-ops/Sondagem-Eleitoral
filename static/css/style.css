@@ -1,0 +1,174 @@
+:root {
+    --primary: #ba0c2f;
+    --primary-light: #d81e46;
+    --success: #27ae60;
+    --bg: #f0f2f5;
+}
+
+body {
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.brand-header {
+    background: var(--primary);
+    color: #fff;
+    border-bottom: 4px solid #000;
+}
+
+.brand-header small {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.subtitle-muted {
+    font-size: 0.78rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+.privacy-notice {
+    font-size: 0.7rem;
+    color: #777;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 15px;
+    border-left: 3px solid var(--primary);
+}
+
+/* As larguras abaixo eram atributos style="" nos templates. Viraram
+   classes para permitir remover 'unsafe-inline' de style-src na CSP —
+   ver app/middlewares/security_headers.py. */
+
+.step-progress {
+    height: 4px;
+    max-width: 320px;
+}
+
+.step-progress .progress-bar {
+    background: #fff;
+    transition: width 0.3s ease;
+    /* Estado inicial: etapa 1 de 4. O app.js atualiza daqui em diante
+       via element.style.width, que é CSSOM e não é afetado pela CSP —
+       'unsafe-inline' governa o atributo style= do HTML, não atribuição
+       de propriedade por script. */
+    width: 25%;
+}
+
+/* Largura máxima dos cartões de cada etapa do fluxo público. */
+.step-card {
+    max-width: 420px;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.form-control-lg {
+    border-radius: 10px;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    border-radius: 10px;
+}
+
+.btn-primary:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+}
+
+.otp-digit {
+    width: 48px;
+    height: 56px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 0;
+}
+
+/* Lista de candidatos: card horizontal (foto redonda + nome/apelido + checkbox),
+   conforme o layout de referência aprovado — substitui a grade anterior de
+   colunas quadradas. */
+.candidato-card {
+    display: flex;
+    align-items: center;
+    border: 1px solid #e0e0e0;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.candidato-card.selected {
+    border-color: var(--primary);
+    background: #fff5f5;
+}
+
+.candidato-card .candidato-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    background: #ddd;
+    flex-shrink: 0;
+}
+
+.candidato-card .candidato-avatar-placeholder {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 12px;
+    background: #ddd;
+    color: #666;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.candidato-card.selected .candidato-avatar-placeholder {
+    background: var(--primary);
+    color: #fff;
+}
+
+.candidato-card .candidato-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.candidato-card .candidato-nome {
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.candidato-card .candidato-apelido {
+    font-size: 0.75rem;
+    color: #777;
+}
+
+.thanks-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--success);
+    color: white;
+    font-size: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+@media (max-width: 576px) {
+    .otp-digit {
+        width: 42px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}

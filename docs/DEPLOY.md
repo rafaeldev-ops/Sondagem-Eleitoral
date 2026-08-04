@@ -1,0 +1,157 @@
+# Guia de Deploy em Produção
+
+## Compatibilidade
+
+Testado e compatível com:
+- VPS Linux (Ubuntu/Debian)
+- AWS (EC2 + RDS + ElastiCache)
+- Render
+- DigitalOcean (Droplet + Managed DB)
+- Hostinger VPS
+- Oracle Cloud (Always Free tier)
+
+## Checklist Pré-Deploy
+
+- [ ] `SECRET_KEY` com 64+ caracteres aleatórios
+- [ ] `ADMIN_PASSWORD` com hash bcrypt
+- [ ] `DEBUG=false`
+- [ ] `HTTPS_ONLY=true`
+- [ ] OTP provider configurado (não usar `mock`)
+- [ ] reCAPTCHA v3 com domínio de produção
+- [ ] `PIPEFY_WEBHOOK_URL` configurada
+- [ ] Backups do PostgreSQL configurados
+
+## Deploy com Docker (VPS)
+
+### 1. Servidor
+
+```bash
+# Ubuntu 22.04+
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+sudo usermod -aG docker $USER
+```
+
+### 2. Clone e configure
+
+```bash
+git clone <repo> /opt/sondagem-clube
+cd /opt/sondagem-clube
+cp .env.example .env
+nano .env  # Configure todas as variáveis
+```
+
+### 3. Suba
+
+```bash
+docker compose up -d --build
+docker compose exec app alembic upgrade head
+```
+
+### 4. Reverse Proxy (Nginx)
+
+```nginx
+server {
+    listen 80;
+    server_name sondagem.seuclube.com.br;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name sondagem.seuclube.com.br;
+
+    ssl_certificate /etc/letsencrypt/live/sondagem.seuclube.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sondagem.seuclube.com.br/privkey.pem;
+
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo certbot --nginx -d sondagem.seuclube.com.br
+```
+
+## Deploy no Render
+
+1. Crie **Web Service** apontando para o repositório
+2. Build: `docker build -t app .`
+3. Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Adicione **PostgreSQL** e **Redis** como serviços gerenciados
+5. Configure variáveis de ambiente no dashboard
+
+## Deploy na AWS
+
+```
+┌─────────────┐     ┌──────────┐     ┌─────────────┐
+│  ALB/HTTPS  │────▶│  EC2/ECS │────▶│     RDS     │
+└─────────────┘     │  FastAPI │     │ PostgreSQL  │
+                    └────┬─────┘     └─────────────┘
+                         │
+                    ┌────▼─────┐
+                    │ElastiCache│
+                    │   Redis   │
+                    └──────────┘
+```
+
+- EC2: t3.small ou superior
+- RDS: db.t3.micro (PostgreSQL 16)
+- ElastiCache: cache.t3.micro (Redis 7)
+
+## Variáveis de Produção
+
+```env
+APP_ENV=production
+DEBUG=false
+HTTPS_ONLY=true
+ALLOWED_ORIGINS=https://sondagem.seuclube.com.br
+
+DATABASE_URL=postgresql+asyncpg://user:pass@db-host:5432/sondagem
+DATABASE_URL_SYNC=postgresql://user:pass@db-host:5432/sondagem
+REDIS_URL=redis://redis-host:6379/0
+
+OTP_PROVIDER=twilio
+RECAPTCHA_SITE_KEY=...
+RECAPTCHA_SECRET_KEY=...
+PIPEFY_WEBHOOK_URL=...
+```
+
+## Backup
+
+```bash
+# Backup PostgreSQL
+docker compose exec db pg_dump -U postgres sondagem_clube > backup_$(date +%Y%m%d).sql
+
+# Restore
+cat backup.sql | docker compose exec -T db psql -U postgres sondagem_clube
+```
+
+## Monitoramento
+
+- Health check: `GET /health` (configure no load balancer)
+- Logs: `docker compose logs -f app`
+- Métricas Pipefy: painel admin > Reprocessar Pipefy
+
+## Atualizações
+
+```bash
+cd /opt/sondagem-clube
+git pull
+docker compose up -d --build
+docker compose exec app alembic upgrade head
+```
+
+## Segurança em Produção
+
+1. Firewall: abra apenas 80/443
+2. Não exponha PostgreSQL/Redis publicamente
+3. Rotacione `SECRET_KEY` e tokens periodicamente
+4. Monitore logs de auditoria (`audit_logs`)
+5. Configure fail2ban para proteção adicional

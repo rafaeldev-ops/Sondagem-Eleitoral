@@ -1,0 +1,118 @@
+import logging
+from abc import ABC, abstractmethod
+
+import httpx
+from twilio.rest import Client
+
+from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class OTPProvider(ABC):
+    @abstractmethod
+    async def send_otp(self, phone: str, code: str) -> bool:
+        pass
+
+
+class MockOTPProvider(OTPProvider):
+    """
+    Provider de desenvolvimento: não envia SMS/WhatsApp de verdade, só
+    escreve o código no log da aplicação para dar para testar o fluxo
+    localmente sem contratar provedor.
+
+    Loga o código em texto puro POR DESIGN — é essa a utilidade dele. Por
+    isso recusa funcionar fora de DEBUG=true: se alguém subir para produção
+    com OTP_PROVIDER=mock por engano, todos os códigos ativos iriam parar
+    no log da aplicação (e nenhum SMS real sairia). Melhor falhar alto na
+    primeira tentativa de envio do que descobrir isso depois.
+    """
+
+    async def send_otp(self, phone: str, code: str) -> bool:
+        settings = get_settings()
+        if not settings.debug:
+            logger.error(
+                "OTP_PROVIDER=mock fora de modo debug — recusando enviar. "
+                "Configure um provedor real (twilio/zenvia/zapi) em produção."
+            )
+            return False
+        logger.info("OTP mock enviado para %s: %s", phone, code)
+        return True
+
+
+class TwilioOTPProvider(OTPProvider):
+    async def send_otp(self, phone: str, code: str) -> bool:
+        settings = get_settings()
+        try:
+            client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+            message = client.messages.create(
+                body=f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+                from_=settings.twilio_from_number,
+                to=f"+55{phone}",
+            )
+            logger.info("Twilio OTP enviado: %s", message.sid)
+            return True
+        except Exception as exc:
+            logger.exception("Erro ao enviar OTP via Twilio: %s", exc)
+            return False
+
+
+class ZenviaOTPProvider(OTPProvider):
+    async def send_otp(self, phone: str, code: str) -> bool:
+        settings = get_settings()
+        url = "https://api.zenvia.com/v2/channels/sms/messages"
+        headers = {
+            "X-API-TOKEN": settings.zenvia_api_token,
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "from": settings.zenvia_from,
+            "to": f"55{phone}",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+                }
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+            return True
+        except Exception as exc:
+            logger.exception("Erro ao enviar OTP via Zenvia: %s", exc)
+            return False
+
+
+class ZAPIOTPProvider(OTPProvider):
+    async def send_otp(self, phone: str, code: str) -> bool:
+        settings = get_settings()
+        url = (
+            f"https://api.z-api.io/instances/{settings.zapi_instance_id}"
+            f"/token/{settings.zapi_token}/send-text"
+        )
+        headers = {"Client-Token": settings.zapi_client_token}
+        payload = {
+            "phone": f"55{phone}",
+            "message": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+            return True
+        except Exception as exc:
+            logger.exception("Erro ao enviar OTP via Z-API: %s", exc)
+            return False
+
+
+def get_otp_provider() -> OTPProvider:
+    settings = get_settings()
+    providers: dict[str, OTPProvider] = {
+        "twilio": TwilioOTPProvider(),
+        "zenvia": ZenviaOTPProvider(),
+        "zapi": ZAPIOTPProvider(),
+        "mock": MockOTPProvider(),
+    }
+    return providers.get(settings.otp_provider, MockOTPProvider())
