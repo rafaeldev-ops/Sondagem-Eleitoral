@@ -14,7 +14,7 @@ Antes do primeiro deploy, tenha em mãos:
 
 - [ ] Provedor de OTP contratado (Twilio, Zenvia ou Z-API) com credenciais
 - [ ] Chaves do Google reCAPTCHA v3 (site key + secret key)
-- [ ] Token de API do Pipefy e o ID do pipe
+- [ ] Destino de webhook (n8n) configurado, com `WEBHOOK_URL` e `WEBHOOK_TOKEN` definidos
 - [ ] Domínio com certificado TLS (HTTPS) — a aplicação trata CPF e
       telefone; HTTP puro não é aceitável
 - [ ] Hash bcrypt da senha do admin (ver seção 2)
@@ -36,7 +36,7 @@ default:
 | `ADMIN_PASSWORD` | **hash bcrypt**, não a senha: `python scripts/hash_password.py "sua-senha"` |
 | `OTP_PROVIDER` | `twilio`, `zenvia` ou `zapi` — **nunca `mock`** |
 | `RECAPTCHA_SECRET_KEY` | console do Google reCAPTCHA |
-| `PIPEFY_API_TOKEN` / `PIPEFY_PIPE_ID` | ver `docs/PIPEFY.md` |
+| `WEBHOOK_URL` / `WEBHOOK_TOKEN` | ver `docs/WEBHOOK.md` |
 | `HTTPS_ONLY` | `true` (ativa HSTS) |
 | `TRUST_PROXY_HEADERS` | `true` **somente** se houver proxy reverso confiável na frente |
 | `ALLOWED_ORIGINS` | domínio real, ex: `https://sondagem.seuclube.com.br` |
@@ -81,7 +81,7 @@ curl -f https://seu-dominio/admin           # painel admin
 - [ ] `/api/docs` responde **404** (confirma `DEBUG=false`)
 - [ ] Página inicial carrega e lista os candidatos
 - [ ] Um cadastro de teste recebe SMS de verdade
-- [ ] O card correspondente aparece no Pipefy
+- [ ] O evento do voto chega ao workflow configurado no n8n
 - [ ] Logs saem em JSON com `request_id` preenchido
 
 ---
@@ -186,7 +186,7 @@ Faça rollback se, após o deploy:
 - `/health/ready` não fica verde em alguns minutos
 - taxa de erro 5xx sobe visivelmente nos logs
 - o fluxo de OTP para de funcionar (ninguém recebe código)
-- cards param de chegar no Pipefy
+- os eventos de voto param de chegar ao n8n
 
 Rollback primeiro, investigação depois — não debugue com a sondagem no ar
 quebrada.
@@ -222,7 +222,7 @@ proxy reverso enviar `X-Request-ID`, esse valor é reaproveitado.
 
 | Sinal | Significado |
 |---|---|
-| `level: ERROR` com `Erro no worker Pipefy` | Cards não estão chegando no Pipefy |
+| `level: ERROR` com `Erro no worker de webhook` | Eventos não estão chegando ao destino configurado (n8n) |
 | `OTP_PROVIDER=mock fora de modo debug` | **Grave** — configuração errada, nenhum SMS está saindo |
 | `reCAPTCHA sem RECAPTCHA_SECRET_KEY` | Proteção anti-bot desligada |
 | Muitos 429 | Ataque, ou rate limit apertado demais |
@@ -255,7 +255,7 @@ docker compose logs app | tail -50
 3. Saldo/cota do provedor acabou?
 4. O número tem DDD e 9 dígitos? (`app/utils/phone.py` valida isso)
 
-### Cards não chegam no Pipefy
+### Eventos não chegam ao n8n
 
 O envio é assíncrono com retry automático — uma falha momentânea se
 resolve sozinha. Se persistir:
@@ -263,14 +263,14 @@ resolve sozinha. Se persistir:
 ```bash
 # ver a fila de pendentes
 docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "SELECT id, status, tentativas, ultimo_erro FROM pipefy_logs WHERE status != 'sent';"
+  -c "SELECT id, status, tentativas, ultimo_erro FROM webhook_logs WHERE status != 'sent';"
 ```
 
-Confira `PIPEFY_API_TOKEN` (expira?) e se os `field_id` em
-`app/integrations/pipefy.py` batem com os campos reais do pipe (ver
-`docs/PIPEFY.md`).
+Confira se `WEBHOOK_TOKEN` ainda bate com a credencial de Header Auth
+configurada no node Webhook do n8n, e se `WEBHOOK_URL` aponta para a
+Production URL correta do node (ver `docs/WEBHOOK.md`).
 
-**As respostas nunca se perdem**: ficam no banco mesmo se o Pipefy
+**As respostas nunca se perdem**: ficam no banco mesmo se o envio ao n8n
 falhar. Dá para exportar pelo painel admin e importar manualmente.
 
 ### Usuário diz que não consegue votar
@@ -299,7 +299,7 @@ design).
   cookie viaja em texto puro se alguém acessar o painel por `http://`
 - Postgres e Redis não devem ter porta pública; no `docker-compose.yml`
   estão em `127.0.0.1` de propósito
-- Revise `pipefy_logs` e `audit_logs` periodicamente
+- Revise `webhook_logs` e `audit_logs` periodicamente
 - Após a sondagem terminar, considere exportar os dados e **remover os
   CPFs do banco** — LGPD: não guarde dado pessoal além do necessário
 

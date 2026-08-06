@@ -101,7 +101,7 @@ Lista candidatos ativos.
 
 ### POST `/survey/submit`
 
-Registra voto e dispara webhook Pipefy.
+Registra voto e dispara o webhook configurado.
 
 **Body:**
 ```json
@@ -186,9 +186,9 @@ Exporta respostas em Excel (.xlsx).
 
 ---
 
-### POST `/admin/pipefy/retry`
+### POST `/admin/webhook/retry`
 
-Reprocessa envios Pipefy pendentes/falhos.
+Reprocessa envios de webhook pendentes/falhos.
 
 ---
 

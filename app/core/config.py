@@ -51,12 +51,12 @@ class Settings(BaseSettings):
     recaptcha_site_key: str = Field(default="", alias="RECAPTCHA_SITE_KEY")
     recaptcha_min_score: float = Field(default=0.5, alias="RECAPTCHA_MIN_SCORE")
 
-    pipefy_webhook_url: str = Field(default="", alias="PIPEFY_WEBHOOK_URL")
-    pipefy_api_token: str = Field(default="", alias="PIPEFY_API_TOKEN")
-    pipefy_retry_max: int = Field(default=5, alias="PIPEFY_RETRY_MAX")
-    pipefy_retry_delay_seconds: int = Field(
+    webhook_url: str = Field(default="", alias="WEBHOOK_URL")
+    webhook_token: str = Field(default="", alias="WEBHOOK_TOKEN")
+    webhook_retry_max: int = Field(default=5, alias="WEBHOOK_RETRY_MAX")
+    webhook_retry_delay_seconds: int = Field(
         default=60,
-        alias="PIPEFY_RETRY_DELAY_SECONDS",
+        alias="WEBHOOK_RETRY_DELAY_SECONDS",
     )
 
     admin_username: str = Field(alias="ADMIN_USERNAME")

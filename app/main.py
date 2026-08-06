@@ -35,21 +35,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
-async def pipefy_retry_worker() -> None:
-    """Background task to retry failed Pipefy webhook deliveries."""
+async def webhook_retry_worker() -> None:
+    """Background task to retry failed webhook deliveries."""
     while True:
         try:
             async with AsyncSessionLocal() as db:
                 otp_service = OTPService(redis_service)
                 service = SurveyService(db, otp_service)
-                count = await service.retry_pending_pipefy()
+                count = await service.retry_pending_webhook()
                 if count:
-                    logger.info("Pipefy retry worker: %d envio(s) reprocessado(s)", count)
+                    logger.info("Webhook retry worker: %d envio(s) reprocessado(s)", count)
                 await db.commit()
         except Exception as exc:
-            logger.exception("Erro no worker Pipefy: %s", exc)
+            logger.exception("Erro no worker de webhook: %s", exc)
 
-        await asyncio.sleep(settings.pipefy_retry_delay_seconds)
+        await asyncio.sleep(settings.webhook_retry_delay_seconds)
 
 
 @asynccontextmanager
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     static_uploads = BASE_DIR / "static" / "uploads" / "candidatos"
     static_uploads.mkdir(parents=True, exist_ok=True)
 
-    retry_task = asyncio.create_task(pipefy_retry_worker())
+    retry_task = asyncio.create_task(webhook_retry_worker())
     logger.info("Aplicação iniciada: %s", settings.app_name)
     yield
 
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
     # realmente parar (não só dispara cancel() e segue em frente) antes de
     # fechar as conexões que ele usa — evita "connection already closed" no
     # meio de uma iteração do worker se o shutdown pegar ele no meio de uma
-    # tentativa de retry do Pipefy.
+    # tentativa de retry do webhook.
     retry_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await retry_task

@@ -7,17 +7,17 @@ from openpyxl import Workbook
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.pipefy import PipefyService
-from app.models import Associado, PipefyLog, Preferencia, Resposta
+from app.integrations.webhook import WebhookService
+from app.models import Associado, Preferencia, Resposta, WebhookLog
 from app.repositories import (
     AssociadoRepository,
     AuditLogRepository,
     CandidatoRepository,
-    PipefyLogRepository,
     PreferenciaRepository,
     RespostaRepository,
+    WebhookLogRepository,
 )
-from app.schemas import PipefyPayload
+from app.schemas import WebhookPayload
 from app.services.otp_service import OTPService
 from app.utils.cpf import format_cpf
 
@@ -32,9 +32,9 @@ class SurveyService:
         self.candidato_repo = CandidatoRepository(db)
         self.resposta_repo = RespostaRepository(db)
         self.preferencia_repo = PreferenciaRepository(db)
-        self.pipefy_log_repo = PipefyLogRepository(db)
+        self.webhook_log_repo = WebhookLogRepository(db)
         self.audit_repo = AuditLogRepository(db)
-        self.pipefy_service = PipefyService()
+        self.webhook_service = WebhookService()
 
     async def check_cpf_available(self, cpf: str) -> tuple[bool, str | None]:
         existing = await self.associado_repo.get_by_cpf(cpf)
@@ -186,7 +186,7 @@ class SurveyService:
         candidatos_nomes = [candidato_map[cid].nome for cid in candidatos_ids]
         preferido_nome = candidato_map[candidato_preferido_id].nome
 
-        payload = PipefyPayload(
+        payload = WebhookPayload(
             nome=associado.nome,
             cpf=format_cpf(associado.cpf),
             telefone=associado.telefone,
@@ -196,7 +196,7 @@ class SurveyService:
             data=associado.data_resposta.isoformat(),
         )
 
-        await self._enqueue_pipefy(associado.id, payload)
+        await self._enqueue_webhook(associado.id, payload)
         await self.otp_service.delete_session(session_token)
 
         await self.audit_repo.create(
@@ -207,15 +207,15 @@ class SurveyService:
         )
         return True, None
 
-    async def _enqueue_pipefy(self, associado_id: int, payload: PipefyPayload) -> None:
-        log = PipefyLog(
+    async def _enqueue_webhook(self, associado_id: int, payload: WebhookPayload) -> None:
+        log = WebhookLog(
             associado_id=associado_id,
-            payload=self.pipefy_service.serialize_payload(payload),
+            payload=self.webhook_service.serialize_payload(payload),
             status="pending",
         )
-        await self.pipefy_log_repo.create(log)
+        await self.webhook_log_repo.create(log)
 
-        success, error = await self.pipefy_service.send_webhook(payload)
+        success, error = await self.webhook_service.send_webhook(payload)
         log.tentativas += 1
         if success:
             log.status = "sent"
@@ -223,19 +223,19 @@ class SurveyService:
         else:
             log.status = "failed"
             log.ultimo_erro = error
-        await self.pipefy_log_repo.update(log)
+        await self.webhook_log_repo.update(log)
 
-    async def retry_pending_pipefy(self) -> int:
-        pending = await self.pipefy_log_repo.list_pending()
+    async def retry_pending_webhook(self) -> int:
+        pending = await self.webhook_log_repo.list_pending()
         retried = 0
-        settings = self.pipefy_service.settings
+        settings = self.webhook_service.settings
 
         for log in pending:
-            if log.tentativas >= settings.pipefy_retry_max:
+            if log.tentativas >= settings.webhook_retry_max:
                 continue
 
-            payload = self.pipefy_service.deserialize_payload(log.payload)
-            success, error = await self.pipefy_service.send_webhook(payload)
+            payload = self.webhook_service.deserialize_payload(log.payload)
+            success, error = await self.webhook_service.send_webhook(payload)
             log.tentativas += 1
 
             if success:
@@ -246,7 +246,7 @@ class SurveyService:
                 log.status = "failed"
                 log.ultimo_erro = error
 
-            await self.pipefy_log_repo.update(log)
+            await self.webhook_log_repo.update(log)
             retried += 1
 
         return retried

@@ -80,8 +80,8 @@ class Preferencia(Base):
     candidato_preferido: Mapped["Candidato"] = relationship()
 
 
-class PipefyLog(Base):
-    __tablename__ = "pipefy_logs"
+class WebhookLog(Base):
+    __tablename__ = "webhook_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     associado_id: Mapped[int] = mapped_column(ForeignKey("associados.id"), nullable=False)

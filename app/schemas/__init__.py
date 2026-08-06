@@ -153,7 +153,7 @@ class SessionResponse(BaseModel):
     message: str
 
 
-class PipefyPayload(BaseModel):
+class WebhookPayload(BaseModel):
     nome: str
     cpf: str
     telefone: str

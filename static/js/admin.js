@@ -221,8 +221,8 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
-document.getElementById('retryPipefy').addEventListener('click', async () => {
-    const res = await fetch('/api/admin/pipefy/retry', {
+document.getElementById('retryWebhook').addEventListener('click', async () => {
+    const res = await fetch('/api/admin/webhook/retry', {
         method: 'POST',
         headers: csrfHeaders(),
     });

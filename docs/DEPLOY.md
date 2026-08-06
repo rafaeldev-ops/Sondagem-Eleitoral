@@ -18,7 +18,7 @@ Testado e compatível com:
 - [ ] `HTTPS_ONLY=true`
 - [ ] OTP provider configurado (não usar `mock`)
 - [ ] reCAPTCHA v3 com domínio de produção
-- [ ] `PIPEFY_WEBHOOK_URL` configurada
+- [ ] `WEBHOOK_URL` configurada
 - [ ] Backups do PostgreSQL configurados
 
 ## Deploy com Docker (VPS)
@@ -120,7 +120,7 @@ REDIS_URL=redis://redis-host:6379/0
 OTP_PROVIDER=twilio
 RECAPTCHA_SITE_KEY=...
 RECAPTCHA_SECRET_KEY=...
-PIPEFY_WEBHOOK_URL=...
+WEBHOOK_URL=...
 ```
 
 ## Backup
@@ -137,7 +137,7 @@ cat backup.sql | docker compose exec -T db psql -U postgres sondagem_clube
 
 - Health check: `GET /health` (configure no load balancer)
 - Logs: `docker compose logs -f app`
-- Métricas Pipefy: painel admin > Reprocessar Pipefy
+- Métricas de webhook: painel admin > Reprocessar Webhook
 
 ## Atualizações
 

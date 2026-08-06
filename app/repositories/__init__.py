@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Associado, AuditLog, Candidato, PipefyLog, Preferencia, Resposta
+from app.models import Associado, AuditLog, Candidato, Preferencia, Resposta, WebhookLog
 from app.utils.cpf import normalize_cpf
 
 
@@ -107,22 +107,22 @@ class PreferenciaRepository:
         return preferencia
 
 
-class PipefyLogRepository:
+class WebhookLogRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def create(self, log: PipefyLog) -> PipefyLog:
+    async def create(self, log: WebhookLog) -> WebhookLog:
         self.db.add(log)
         await self.db.flush()
         return log
 
-    async def list_pending(self) -> list[PipefyLog]:
+    async def list_pending(self) -> list[WebhookLog]:
         result = await self.db.execute(
-            select(PipefyLog).where(PipefyLog.status.in_(["pending", "failed"]))
+            select(WebhookLog).where(WebhookLog.status.in_(["pending", "failed"]))
         )
         return list(result.scalars().all())
 
-    async def update(self, log: PipefyLog) -> PipefyLog:
+    async def update(self, log: WebhookLog) -> WebhookLog:
         await self.db.flush()
         return log
 

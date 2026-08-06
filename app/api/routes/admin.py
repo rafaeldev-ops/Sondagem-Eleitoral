@@ -227,12 +227,12 @@ async def export_excel(
     )
 
 
-@router.post("/pipefy/retry")
-async def retry_pipefy(
+@router.post("/webhook/retry")
+async def retry_webhook(
     db: AsyncSession = Depends(get_db),
     otp_service: OTPService = Depends(get_otp_service),
     _: dict = Depends(get_admin_token),
 ) -> dict:
     service = SurveyService(db, otp_service)
-    count = await service.retry_pending_pipefy()
+    count = await service.retry_pending_webhook()
     return {"retried": count, "message": f"{count} envio(s) reprocessado(s)"}
