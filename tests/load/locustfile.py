@@ -74,10 +74,14 @@ class SondagemUser(HttpUser):
                 "nome": f"Usuário Carga {random.randint(1, 999999)}",
                 "cpf": cpf,
                 "telefone": telefone,
+                "numero_socio": f"{random.randint(0, 9999):04d}",
                 "recaptcha_token": "",
             },
             name="POST /register",
         )
+        # Nota: com 4 dígitos há só 10.000 números possíveis e a constraint é
+        # única, então em runs longos vão aparecer 400 de número repetido.
+        # Isso é comportamento correto do sistema, não falha do teste.
         if res.status_code != 200:
             return
 

@@ -16,6 +16,12 @@ class AssociadoRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_numero_socio(self, numero_socio: str) -> Associado | None:
+        result = await self.db.execute(
+            select(Associado).where(Associado.numero_socio == numero_socio)
+        )
+        return result.scalar_one_or_none()
+
     async def create(self, associado: Associado) -> Associado:
         self.db.add(associado)
         await self.db.flush()

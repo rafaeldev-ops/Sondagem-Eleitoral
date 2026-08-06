@@ -8,10 +8,20 @@ from app.database.base import Base
 
 class Associado(Base):
     __tablename__ = "associados"
+    # Constraint nomeada explicitamente porque Base.metadata não tem
+    # naming_convention: com unique=True inline, create_all (usado pelos
+    # testes) geraria "associados_numero_socio_key" e o Alembic
+    # "uq_associados_numero_socio". A lógica que distingue qual constraint
+    # estourou depende de os dois ambientes concordarem.
+    __table_args__ = (
+        UniqueConstraint("numero_socio", name="uq_associados_numero_socio"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
     cpf: Mapped[str] = mapped_column(String(11), unique=True, nullable=False, index=True)
+    # Texto, não inteiro: zeros à esquerda são significativos (0042 != 42).
+    numero_socio: Mapped[str] = mapped_column(String(4), nullable=False)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)

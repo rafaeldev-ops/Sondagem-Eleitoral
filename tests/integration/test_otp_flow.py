@@ -1,11 +1,12 @@
 class TestOtpFlow:
-    async def test_register_sends_otp(self, client, valid_cpf, read_otp_code):
+    async def test_register_sends_otp(self, client, valid_cpf, numero_socio, read_otp_code):
         res = await client.post(
             "/api/survey/register",
             json={
                 "nome": "Carlos Silva",
                 "cpf": valid_cpf(),
                 "telefone": "11988887001",
+                "numero_socio": numero_socio(),
                 "recaptcha_token": "",
             },
         )
@@ -15,13 +16,16 @@ class TestOtpFlow:
         code = read_otp_code("11988887001")
         assert len(code) == 6
 
-    async def test_verify_wrong_code_then_correct(self, client, valid_cpf, read_otp_code):
+    async def test_verify_wrong_code_then_correct(
+        self, client, valid_cpf, numero_socio, read_otp_code
+    ):
         res = await client.post(
             "/api/survey/register",
             json={
                 "nome": "Ana Souza",
                 "cpf": valid_cpf(),
                 "telefone": "11988887002",
+                "numero_socio": numero_socio(),
                 "recaptcha_token": "",
             },
         )
@@ -40,13 +44,16 @@ class TestOtpFlow:
         )
         assert right.status_code == 200
 
-    async def test_max_attempts_locks_out(self, client, valid_cpf, read_otp_code):
+    async def test_max_attempts_locks_out(
+        self, client, valid_cpf, numero_socio, read_otp_code
+    ):
         res = await client.post(
             "/api/survey/register",
             json={
                 "nome": "Pedro Lima",
                 "cpf": valid_cpf(),
                 "telefone": "11988887003",
+                "numero_socio": numero_socio(),
                 "recaptcha_token": "",
             },
         )

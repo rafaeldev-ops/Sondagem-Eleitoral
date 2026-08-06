@@ -40,6 +40,16 @@ os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "admin123")
 os.environ.setdefault("RATE_LIMIT_DEFAULT", "1000/minute")
 os.environ.setdefault("RATE_LIMIT_OTP", "1000/minute")
+# Também afrouxado, pelo mesmo motivo dos dois acima: o rate limit é por IP
+# e todos os testes batem do mesmo 127.0.0.1 dentro da mesma janela de 1
+# minuto. O default de produção (10/minute) comporta os testes que existiam
+# antes de tests/integration/test_numero_socio.py, mas essa suíte sozinha já
+# soma 6 chamadas a /register — somado ao resto, estoura o limite e derruba
+# testes que nada têm a ver com rate limit (viram 429 em vez de 200).
+# test_limites_do_fluxo_publico_batem_com_a_configuracao (em
+# tests/security/test_rate_limits.py) lê esse valor de volta em vez de
+# comparar com um número fixo, então continua válido com qualquer valor aqui.
+os.environ.setdefault("RATE_LIMIT_REGISTER", "1000/minute")
 # Deliberadamente baixo, ao contrário dos outros: tests/security/
 # test_rate_limits.py precisa que o limite seja realmente atingido.
 #
@@ -58,6 +68,7 @@ os.environ.setdefault("HTTPS_ONLY", "false")
 os.environ.setdefault("UPLOAD_DIR", "uploads/candidatos")
 os.environ.setdefault("MAX_UPLOAD_SIZE_MB", "5")
 
+import itertools
 import re
 import socket
 import subprocess
@@ -257,6 +268,22 @@ def valid_cpf():
         d1 = calc(base)
         d2 = calc(base + [d1])
         return "".join(map(str, base)) + str(d1) + str(d2)
+
+    return generate
+
+
+@pytest.fixture
+def numero_socio():
+    """
+    Gera números de sócio de 4 dígitos distintos dentro da mesma run. A
+    coluna tem constraint UNIQUE, então dois testes que sorteassem o mesmo
+    número quebrariam um ao outro de forma intermitente — daí um contador
+    sequencial em vez de random.
+    """
+    contador = itertools.count(1)
+
+    def generate() -> str:
+        return f"{next(contador) % 10000:04d}"
 
     return generate
 

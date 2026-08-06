@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.utils.cpf import normalize_cpf, validate_cpf
 from app.utils.phone import normalize_phone, validate_phone
 from app.utils.sanitize import sanitize_text
+from app.utils.socio import normalize_numero_socio, validate_numero_socio
 
 
 class CPFValidateRequest(BaseModel):
@@ -22,6 +23,7 @@ class CPFValidateRequest(BaseModel):
 class CadastroRequest(BaseModel):
     nome: str = Field(min_length=3, max_length=255)
     cpf: str
+    numero_socio: str
     telefone: str
     recaptcha_token: str = Field(default="")
 
@@ -37,6 +39,14 @@ class CadastroRequest(BaseModel):
         if not validate_cpf(cpf):
             raise ValueError("CPF inválido")
         return cpf
+
+    @field_validator("numero_socio")
+    @classmethod
+    def validate_numero_socio_field(cls, value: str) -> str:
+        numero = normalize_numero_socio(value)
+        if not validate_numero_socio(numero):
+            raise ValueError("Número de sócio deve ter exatamente 4 dígitos")
+        return numero
 
     @field_validator("telefone")
     @classmethod
