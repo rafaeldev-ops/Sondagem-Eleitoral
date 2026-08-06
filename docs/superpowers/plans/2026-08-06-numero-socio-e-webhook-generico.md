@@ -396,9 +396,13 @@ class TestValidateNumeroSocio:
 
     @pytest.mark.parametrize("valor", ["٤٢٣١", "²²²²", "١٢٣٤"])
     def test_rejeita_digitos_unicode(self, valor):
-        """str.isdigit() retorna True para esses caracteres — e a razao de a
-        validacao usar re.fullmatch(r"[0-9]{4}") em vez de isdigit()."""
-        assert valor.isdigit() or True  # documenta a armadilha
+        """
+        A premissa deste teste e que str.isdigit() aceita esses caracteres —
+        e por isso que a validacao usa re.fullmatch(r"[0-9]{4}"). A primeira
+        asserta a armadilha (se um dia deixar de valer, o teste avisa em vez
+        de virar tautologia); a segunda asserta o comportamento.
+        """
+        assert valor.isdigit() is True
         assert validate_numero_socio(valor) is False
 ```
 
@@ -434,7 +438,14 @@ def validate_numero_socio(valor: str) -> bool:
 Run: `pytest tests/unit/test_socio.py -v`
 Expected: PASS (todos)
 
-Atenção ao caso `normalize_numero_socio("٤٢٣١")`: `re.sub(r"\D", "", ...)` **não** remove dígitos unicode, porque `\D` é "não-dígito" em modo unicode e esses caracteres contam como dígito. Por isso a validação é feita sobre o resultado da normalização e rejeita o valor — a normalização sozinha não é suficiente.
+Comportamento verificado dos três casos unicode (Python 3.12+), que explica por que os dois passos são necessários:
+
+| Entrada | `isdigit()` | Sobra de `re.sub(r"\D","",...)` | `validate` |
+|---|---|---|---|
+| `"٤٢٣١"` (arábico-índico, Nd) | `True` | 4 caracteres — **não** são removidos | `False` |
+| `"²²²²"` (sobrescrito, No) | `True` | 0 caracteres — são removidos | `False` |
+
+`\d` em modo unicode casa só a categoria Nd, então `\D` remove os sobrescritos mas preserva os arábico-índicos. A normalização sozinha **não** basta: é `validate_numero_socio` com `[0-9]` explícito que barra o primeiro caso.
 
 - [ ] **Step 5: Commit**
 
