@@ -31,14 +31,31 @@ dígitos com verificadores não são enumeráveis da mesma forma.
 
 ## Modelo de dados
 
-Nova coluna em `Associado` (`app/models/__init__.py`):
+Nova coluna em `Associado` (`app/models/__init__.py`), com a constraint única
+**nomeada explicitamente** em `__table_args__`:
 
 ```python
-numero_socio: Mapped[str] = mapped_column(String(4), unique=True, nullable=False)
+class Associado(Base):
+    __tablename__ = "associados"
+    __table_args__ = (
+        UniqueConstraint("numero_socio", name="uq_associados_numero_socio"),
+    )
+
+    numero_socio: Mapped[str] = mapped_column(String(4), nullable=False)
 ```
 
 **Texto, não inteiro** — preserva zeros à esquerda. `0042` e `42` são números de
 sócio diferentes, e um `Integer` colapsaria os dois.
+
+**Constraint nomeada, não `unique=True` inline.** `Base.metadata` não tem
+`naming_convention` (ver `app/database/base.py`), então um `unique=True` inline
+sairia com nome automático do Postgres (`associados_numero_socio_key`) quando o
+schema é criado por `Base.metadata.create_all` — que é justamente como os testes
+criam o schema (`tests/conftest.py`, fixture `_schema`) — enquanto a migration
+Alembic criaria `uq_associados_numero_socio`. Os dois ambientes ficariam com
+nomes de constraint diferentes, e a lógica de mensagem de erro por constraint
+(ver adiante) se comportaria de um jeito no teste e de outro em produção.
+Nomear explicitamente elimina a divergência.
 
 **Sem `index=True` separado.** Em Postgres a constraint `UNIQUE` já cria um índice
 b-tree; um `create_index` adicional custaria escrita e disco sem ganho de leitura.
@@ -140,9 +157,21 @@ except IntegrityError:
 
 Com duas constraints únicas na mesma tabela, essa mensagem passa a estar errada
 metade das vezes. O tratamento passa a inspecionar qual constraint foi violada
-(via `str(exc.orig)`, que contém o nome da constraint em Postgres) e devolver
-"Este número de sócio já participou da sondagem" quando for
-`uq_associados_numero_socio`, mantendo a mensagem de CPF no outro caso.
+via `str(exc.orig)` e devolver "Este número de sócio já participou da sondagem"
+quando a violação for da constraint de número de sócio, mantendo a mensagem de
+CPF no outro caso.
+
+A detecção casa o **nome da coluna** (`"numero_socio" in str(exc.orig)`), não o
+nome exato da constraint. O texto do asyncpg traz as duas informações — o nome
+da constraint e uma linha `DETAIL: Key (numero_socio)=(...) already exists` — e
+casar pela coluna continua funcionando mesmo que a constraint venha a ser
+renomeada. A constraint nomeada explicitamente no modelo (ver acima) já garante
+que teste e produção concordem; isso é redundância barata em cima disso.
+
+**Esse texto não pode ir para log.** `str(exc.orig)` inclui o valor que violou a
+constraint — no caso do CPF, o CPF completo em texto puro. O projeto trata isso
+com cuidado em outros pontos (`mask_cpf` existe exatamente para isso). O texto
+serve só para o `if`; não entra em `logger.*`.
 
 ## Frontend
 
@@ -247,14 +276,23 @@ clicar manualmente na rota de retry — não há job automático.
 - `submit` com CPF duplicado continua devolvendo a mensagem de CPF (garante que
   a distinção de constraint funciona nos dois sentidos).
 
+**Nova fixture em `tests/conftest.py`:** `numero_socio`, análoga à `valid_cpf` que
+já existe — gera números de 4 dígitos distintos dentro da mesma run, para que os
+testes não colidam entre si na constraint `UNIQUE`.
+
 **Testes existentes a atualizar** — todos passam a enviar `numero_socio` no
-`/register`, com números distintos entre si para não colidir na constraint:
+`/register`, usando a fixture acima:
 
 - `tests/integration/test_otp_flow.py`
 - `tests/integration/test_submit.py`
 - `tests/security/test_rate_limits.py`
 - `tests/security/test_otp_storage_regression.py`
 - `tests/load/locustfile.py`
+
+`tests/conftest.py` também define `PIPEFY_API_TOKEN` e `PIPEFY_WEBHOOK_URL` no
+bloco de `os.environ.setdefault` do topo — as duas passam a ser `WEBHOOK_TOKEN` e
+`WEBHOOK_URL`. Sem isso os testes sobem com a configuração antiga e o
+`Settings()` renomeado ignora os valores.
 
 ## Fora de escopo
 
