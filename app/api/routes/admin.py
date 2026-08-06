@@ -190,6 +190,7 @@ async def search_cpf(
             "id": a.id,
             "nome": a.nome,
             "cpf": a.cpf,
+            "numero_socio": a.numero_socio,
             "telefone": a.telefone,
             "data_resposta": a.data_resposta.isoformat(),
             "candidatos": [r.candidato.nome for r in a.respostas],

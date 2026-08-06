@@ -145,6 +145,7 @@ class AssociadoResponse(BaseModel):
     id: int
     nome: str
     cpf: str
+    numero_socio: str
     telefone: str
     data_resposta: datetime
     candidatos: list[str]
@@ -165,6 +166,7 @@ class SessionResponse(BaseModel):
 
 class WebhookPayload(BaseModel):
     nome: str
+    numero_socio: str
     cpf: str
     telefone: str
     candidatos: list[str]

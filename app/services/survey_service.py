@@ -233,6 +233,7 @@ class SurveyService:
 
         payload = WebhookPayload(
             nome=associado.nome,
+            numero_socio=associado.numero_socio,
             cpf=format_cpf(associado.cpf),
             telefone=associado.telefone,
             candidatos=candidatos_nomes,
@@ -306,7 +307,7 @@ class ExportService:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["ID", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"]
+            ["ID", "Nº Sócio", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"]
         )
 
         for a in associados:
@@ -315,6 +316,7 @@ class ExportService:
             writer.writerow(
                 [
                     a.id,
+                    a.numero_socio,
                     a.nome,
                     format_cpf(a.cpf),
                     a.telefone,
@@ -332,7 +334,9 @@ class ExportService:
         wb = Workbook()
         ws = wb.active
         ws.title = "Respostas"
-        ws.append(["ID", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"])
+        ws.append(
+            ["ID", "Nº Sócio", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"]
+        )
 
         for a in associados:
             candidatos = ", ".join(r.candidato.nome for r in a.respostas)
@@ -340,6 +344,7 @@ class ExportService:
             ws.append(
                 [
                     a.id,
+                    a.numero_socio,
                     a.nome,
                     format_cpf(a.cpf),
                     a.telefone,

@@ -189,7 +189,7 @@ document.getElementById('btnSearch').addEventListener('click', async () => {
     container.innerHTML = results.map(r => `
         <div class="card mb-2">
             <div class="card-body">
-                <strong>${escapeHtml(r.nome)}</strong> — CPF: ${escapeHtml(r.cpf)}<br>
+                <strong>${escapeHtml(r.nome)}</strong> — Sócio: ${escapeHtml(r.numero_socio)} — CPF: ${escapeHtml(r.cpf)}<br>
                 <small class="text-muted">${escapeHtml(r.data_resposta)}</small><br>
                 Candidatos: ${escapeHtml(r.candidatos.join(', '))}<br>
                 Preferido: ${escapeHtml(r.preferido || '-')}

@@ -31,28 +31,27 @@ WEBHOOK_RETRY_DELAY_SECONDS=60
 
 ```json
 {
-  "nome": "João Silva",
-  "cpf": "123.456.789-09",
-  "telefone": "11999998888",
-  "candidatos": ["Maria Santos", "Pedro Oliveira"],
-  "preferido": "Maria Santos",
+  "nome": "Fulano de Tal",
+  "numero_socio": "0042",
+  "cpf": "123.456.789-00",
+  "telefone": "11988887777",
+  "candidatos": ["Candidato A", "Candidato B"],
+  "preferido": "Candidato A",
   "aceite_lgpd": true,
-  "data": "2026-08-01T14:30:00+00:00"
+  "data": "2026-08-06T14:32:10.123456+00:00"
 }
 ```
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | nome | string | Nome completo do associado |
+| numero_socio | string | Número de sócio, sempre com 4 dígitos (zeros à esquerda preservados) |
 | cpf | string | CPF formatado |
 | telefone | string | Celular normalizado |
 | candidatos | string[] | Nomes dos candidatos selecionados |
 | preferido | string | Nome do candidato preferencial |
 | aceite_lgpd | boolean | Consentimento LGPD |
 | data | string | ISO 8601 da resposta |
-
-> Este payload ainda não inclui `numero_socio` — o campo é adicionado em
-> uma task posterior, que atualiza este exemplo.
 
 ## Configurar o Workflow no n8n
 
