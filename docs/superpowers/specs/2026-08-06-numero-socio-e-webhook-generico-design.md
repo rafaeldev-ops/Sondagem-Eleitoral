@@ -231,6 +231,7 @@ Payload final enviado ao n8n:
 | `PipefyLogRepository` | `WebhookLogRepository` |
 | `SurveyService._enqueue_pipefy` | `_enqueue_webhook` |
 | `SurveyService.retry_pending_pipefy` | `retry_pending_webhook` |
+| `app/main.py: pipefy_retry_worker` | `webhook_retry_worker` |
 | `POST /api/admin/pipefy/retry` | `POST /api/admin/webhook/retry` |
 | `PIPEFY_WEBHOOK_URL` | `WEBHOOK_URL` |
 | `PIPEFY_API_TOKEN` | `WEBHOOK_TOKEN` |
@@ -252,13 +253,14 @@ O novo `docs/WEBHOOK.md` documenta a configuração com n8n:
   código envia `Authorization: Bearer <token>` — sem isso o endpoint fica aberto
   recebendo nome, CPF e telefone de quem descobrir a URL;
 - **Respond Immediately** no node de Webhook, porque o cliente HTTP do backend
-  tem timeout de 30s e o voto do usuário fica esperando se o workflow demorar;
-- workflow secundário com trigger **Schedule** chamando
-  `POST /api/admin/webhook/retry` periodicamente.
+  tem timeout de 30s e o voto do usuário fica esperando se o workflow demorar.
 
-Esse último ponto cobre uma lacuna que existe hoje independente do n8n: quando um
-envio falha, ele fica `status=failed` na tabela e só é reprocessado se um admin
-clicar manualmente na rota de retry — não há job automático.
+**Não é preciso criar workflow de retry agendado no n8n.** A aplicação já
+reprocessa envios falhos sozinha: `app/main.py` sobe um worker de background no
+`lifespan` (`pipefy_retry_worker`, renomeado aqui para `webhook_retry_worker`)
+que roda `retry_pending_webhook()` em loop a cada `WEBHOOK_RETRY_DELAY_SECONDS`.
+A rota `POST /api/admin/webhook/retry` é um gatilho manual complementar, não o
+único caminho. O worker também entra na renomeação.
 
 ## Testes
 
@@ -283,11 +285,14 @@ testes não colidam entre si na constraint `UNIQUE`.
 **Testes existentes a atualizar** — todos passam a enviar `numero_socio` no
 `/register`, usando a fixture acima:
 
-- `tests/integration/test_otp_flow.py`
-- `tests/integration/test_submit.py`
-- `tests/security/test_rate_limits.py`
-- `tests/security/test_otp_storage_regression.py`
-- `tests/load/locustfile.py`
+- `tests/integration/test_otp_flow.py` (3 chamadas)
+- `tests/integration/test_submit.py` (2 chamadas)
+- `tests/security/test_otp_storage_regression.py` (1 chamada)
+- `tests/load/locustfile.py` (1 chamada)
+
+`tests/security/test_rate_limits.py` **não** entra nessa lista: ele só inspeciona
+os limites registrados por nome de rota (`"app.api.routes.survey.register"`), sem
+nunca chamar o endpoint, então não envia corpo nenhum.
 
 `tests/conftest.py` também define `PIPEFY_API_TOKEN` e `PIPEFY_WEBHOOK_URL` no
 bloco de `os.environ.setdefault` do topo — as duas passam a ser `WEBHOOK_TOKEN` e
