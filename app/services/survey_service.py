@@ -24,6 +24,31 @@ from app.utils.cpf import format_cpf
 logger = logging.getLogger(__name__)
 
 
+def _mensagem_para_erro_de_unicidade(detalhe_erro: str) -> str:
+    """
+    Escolhe a mensagem certa a partir do texto de uma violação de UNIQUE
+    constraint em `associados` (ou seja, `str(exc.orig)` de um
+    IntegrityError capturado em `submit_vote`).
+
+    Casa o nome da COLUNA, não o da constraint: o texto do driver traz os
+    dois (nome da constraint + "DETAIL: Key (coluna)=..."), e casar pela
+    coluna sobrevive a uma renomeação de constraint. É também o único jeito
+    que funciona nos dois ambientes ao mesmo tempo — Alembic (produção) nomeia
+    a constraint de cpf como "associados_cpf_key", enquanto create_all (usado
+    pelos testes) não cria constraint nenhuma para cpf, só o índice único
+    "ix_associados_cpf" (efeito colateral de `unique=True` + `index=True`
+    juntos no mapeamento); só "numero_socio" tem o mesmo nome de constraint
+    nos dois, por ser nomeada explicitamente em `__table_args__`.
+
+    ATENÇÃO: quem chama esta função nunca deve logar `detalhe_erro` — ele
+    contém o valor que violou a constraint, ou seja, o CPF completo em
+    texto puro.
+    """
+    if "numero_socio" in detalhe_erro:
+        return "Este número de sócio já participou da sondagem"
+    return "Este CPF já participou da sondagem"
+
+
 class SurveyService:
     def __init__(self, db: AsyncSession, otp_service: OTPService) -> None:
         self.db = db
@@ -185,18 +210,11 @@ class SurveyService:
             # este INSERT, e entre os dois ainda passa todo o fluxo de OTP.
             # As constraints UNIQUE do banco são quem realmente garante um
             # voto por CPF e um por número de sócio; aqui só traduzimos a
-            # violação numa mensagem que diz qual dos dois repetiu.
-            #
-            # Casa o nome da COLUNA, não o da constraint: o texto do asyncpg
-            # traz os dois (nome da constraint + "DETAIL: Key (coluna)=..."),
-            # e casar pela coluna sobrevive a uma renomeação de constraint.
-            #
-            # Esse texto NUNCA pode ir para log: ele inclui o valor que
-            # violou a constraint, ou seja, o CPF completo em texto puro.
+            # violação numa mensagem que diz qual dos dois repetiu (ver
+            # _mensagem_para_erro_de_unicidade acima para a lógica e o
+            # motivo de nunca logar esse texto).
             await self.db.rollback()
-            if "numero_socio" in str(exc.orig):
-                return False, "Este número de sócio já participou da sondagem"
-            return False, "Este CPF já participou da sondagem"
+            return False, _mensagem_para_erro_de_unicidade(str(exc.orig))
 
         respostas = [
             Resposta(associado_id=associado.id, candidato_id=cid) for cid in candidatos_ids

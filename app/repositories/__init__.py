@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Associado, AuditLog, Candidato, Preferencia, Resposta, WebhookLog
 from app.utils.cpf import normalize_cpf
+from app.utils.socio import normalize_numero_socio
 
 
 class AssociadoRepository:
@@ -18,7 +19,9 @@ class AssociadoRepository:
 
     async def get_by_numero_socio(self, numero_socio: str) -> Associado | None:
         result = await self.db.execute(
-            select(Associado).where(Associado.numero_socio == numero_socio)
+            select(Associado).where(
+                Associado.numero_socio == normalize_numero_socio(numero_socio)
+            )
         )
         return result.scalar_one_or_none()
 

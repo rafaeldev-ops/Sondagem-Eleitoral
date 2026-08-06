@@ -50,6 +50,15 @@ os.environ.setdefault("RATE_LIMIT_OTP", "1000/minute")
 # tests/security/test_rate_limits.py) lê esse valor de volta em vez de
 # comparar com um número fixo, então continua válido com qualquer valor aqui.
 os.environ.setdefault("RATE_LIMIT_REGISTER", "1000/minute")
+# Mesmo motivo e mesma proteção de test_limites_do_fluxo_publico_batem_com_a_
+# configuracao: /verify-otp (default de produção 15/minute) e /submit
+# (default 10/minute) também são chamados várias vezes por teste em vários
+# arquivos, na mesma janela compartilhada por IP. Sem isso, adicionar mais um
+# teste de fluxo completo em qualquer arquivo pode empurrar a contagem total
+# da suíte para além do limite de produção e derrubar testes que não têm
+# nada a ver com rate limit.
+os.environ.setdefault("RATE_LIMIT_VERIFY_OTP", "1000/minute")
+os.environ.setdefault("RATE_LIMIT_SUBMIT", "1000/minute")
 # Deliberadamente baixo, ao contrário dos outros: tests/security/
 # test_rate_limits.py precisa que o limite seja realmente atingido.
 #
@@ -275,10 +284,15 @@ def valid_cpf():
 @pytest.fixture
 def numero_socio():
     """
-    Gera números de sócio de 4 dígitos distintos dentro da mesma run. A
-    coluna tem constraint UNIQUE, então dois testes que sorteassem o mesmo
-    número quebrariam um ao outro de forma intermitente — daí um contador
-    sequencial em vez de random.
+    Gera números de sócio de 4 dígitos sequenciais (0001, 0002, ...), únicos
+    dentro de UM teste. A fixture é function-scoped, então o contador
+    reinicia do 1 a cada teste — não é ela quem garante números distintos
+    ENTRE testes, isso é a fixture autouse `_clean_database`, que limpa a
+    tabela antes de cada teste. O sequencial (em vez de random) evita só a
+    colisão entre duas chamadas dentro do MESMO teste, que quebraria a
+    constraint UNIQUE de forma intermitente. O `% 10000` existe para nunca
+    gerar mais de 4 dígitos; na prática nenhum teste chama a fixture perto
+    de 10.000 vezes, então esse teto não é alcançado.
     """
     contador = itertools.count(1)
 

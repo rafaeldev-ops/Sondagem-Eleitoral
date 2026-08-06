@@ -54,7 +54,7 @@ class TestNumeroSocioNoCadastro:
 
 class TestUnicidadeDoNumeroSocio:
     async def test_numero_repetido_e_barrado_antes_de_enviar_otp(
-        self, client, db_session, valid_cpf, numero_socio, read_otp_code
+        self, client, db_session, valid_cpf, numero_socio
     ):
         """
         Barrar no /register (e não só no /submit) evita gastar um SMS num
@@ -90,8 +90,17 @@ class TestUnicidadeDoNumeroSocio:
     async def test_cpf_repetido_continua_com_a_mensagem_de_cpf(
         self, client, db_session, valid_cpf, numero_socio
     ):
-        """Garante que a distinção por constraint funciona nos dois sentidos:
-        a mensagem de CPF não pode virar a de número de sócio."""
+        """
+        Fixa a ORDEM das checagens em register_and_send_otp (CPF antes de
+        número de sócio): com CPF e número ambos repetidos, a mensagem tem
+        que continuar sendo a de CPF. Isso é sobre a checagem otimista do
+        /register, não sobre a constraint do banco — a lógica que escolhe
+        a mensagem a partir de uma violação de UNIQUE constraint real (o
+        except IntegrityError de submit_vote) é coberta à parte, por
+        tests/unit/test_survey_service.py, com strings de erro reais do
+        asyncpg (esse caminho não é alcançável de forma determinística
+        daqui, só numa corrida de verdade entre duas requisições).
+        """
         from app.models import Associado
 
         cpf = valid_cpf()
@@ -144,6 +153,7 @@ class TestNumeroSocioPersistido:
                 "recaptcha_token": "",
             },
         )
+        assert res.status_code == 200
         session_token = res.json()["session_token"]
         codigo = read_otp_code(telefone)
         await client.post(
