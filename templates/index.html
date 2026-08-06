@@ -39,6 +39,11 @@
                                 <div class="valid-feedback">CPF válido</div>
                             </div>
                             <div class="mb-3">
+                                <label for="numeroSocio" class="form-label">Número de Sócio * (4 dígitos)</label>
+                                <input type="text" class="form-control form-control-lg" id="numeroSocio" inputmode="numeric" required maxlength="4" minlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="0000">
+                                <div class="invalid-feedback" id="numeroSocioFeedback">Informe os 4 dígitos do seu número de sócio</div>
+                            </div>
+                            <div class="mb-3">
                                 <label for="telefone" class="form-label">Celular (WhatsApp) *</label>
                                 <input type="tel" class="form-control form-control-lg" id="telefone" inputmode="tel" required maxlength="16" autocomplete="tel" placeholder="(11) 90000-0000">
                             </div>

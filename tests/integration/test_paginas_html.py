@@ -36,6 +36,13 @@ class TestPaginaPublica:
         html = (await client.get("/")).text
         assert "/static/js/app.js" in html
 
+    async def test_index_tem_campo_de_numero_de_socio(self, client):
+        """O cadastro passou a exigir o número de sócio; se o input sumir do
+        template, o formulário quebra com 422 e só apareceria em produção."""
+        html = (await client.get("/")).text
+        assert 'id="numeroSocio"' in html
+        assert 'maxlength="4"' in html
+
 
 class TestPaginaAdmin:
     async def test_admin_renderiza(self, client):

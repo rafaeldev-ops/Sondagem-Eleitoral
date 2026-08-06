@@ -143,11 +143,21 @@ document.getElementById('telefone').addEventListener('input', (e) => {
     e.target.value = formatPhone(e.target.value);
 });
 
+document.getElementById('numeroSocio').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+});
+
 // Step 1: Registration
 document.getElementById('cadastroForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!cpfValid) {
         showToast('Verifique o CPF antes de continuar');
+        return;
+    }
+
+    const numeroSocio = document.getElementById('numeroSocio').value;
+    if (!/^[0-9]{4}$/.test(numeroSocio)) {
+        showToast('Informe os 4 dígitos do seu número de sócio');
         return;
     }
 
@@ -162,6 +172,7 @@ document.getElementById('cadastroForm').addEventListener('submit', async (e) => 
             body: JSON.stringify({
                 nome: document.getElementById('nome').value.trim(),
                 cpf: normalizeCPF(cpfInput.value),
+                numero_socio: numeroSocio,
                 telefone: normalizePhone(document.getElementById('telefone').value),
                 recaptcha_token: recaptchaToken,
             }),
