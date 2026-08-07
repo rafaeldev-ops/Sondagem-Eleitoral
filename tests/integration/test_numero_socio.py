@@ -131,7 +131,7 @@ class TestUnicidadeDoNumeroSocio:
 
 class TestNumeroSocioPersistido:
     async def test_numero_chega_ao_banco_com_zeros_a_esquerda(
-        self, client, db_session, valid_cpf, read_otp_code
+        self, client, db_session, valid_cpf, read_otp_code, departamentos
     ):
         from sqlalchemy import select
 
@@ -141,6 +141,9 @@ class TestNumeroSocioPersistido:
         db_session.add(c1)
         await db_session.commit()
         await db_session.refresh(c1)
+
+        deps = await departamentos(quantos=1, com_outros=False)
+        dep = deps[0]
 
         telefone = "11955550001"
         res = await client.post(
@@ -170,6 +173,7 @@ class TestNumeroSocioPersistido:
                 "session_token": session_token,
                 "candidatos_ids": [c1.id],
                 "candidato_preferido_id": c1.id,
+                "departamentos_ids": [dep.id],
                 "aceite_lgpd": True,
             },
         )

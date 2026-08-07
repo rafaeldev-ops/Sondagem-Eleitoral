@@ -89,6 +89,10 @@ class VotoRequest(BaseModel):
     session_token: str
     candidatos_ids: list[int] = Field(min_length=1, max_length=20)
     candidato_preferido_id: int
+    # min_length=1 é a obrigatoriedade da etapa; max_length=49 é o total de
+    # opções da lista e existe só para recusar payload absurdo.
+    departamentos_ids: list[int] = Field(min_length=1, max_length=49)
+    departamento_outros: str = Field(default="", max_length=100)
     aceite_lgpd: bool
 
     @field_validator("aceite_lgpd")
@@ -97,6 +101,12 @@ class VotoRequest(BaseModel):
         if not value:
             raise ValueError("É necessário aceitar os termos da LGPD")
         return value
+
+    @field_validator("departamento_outros")
+    @classmethod
+    def sanitize_departamento_outros(cls, value: str) -> str:
+        # Primeiro texto livre do fluxo público — mesmo tratamento que o nome.
+        return sanitize_text(value, 100)
 
 
 class CandidatoPublic(BaseModel):

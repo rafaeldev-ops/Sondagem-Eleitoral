@@ -158,6 +158,8 @@ async def submit_vote(
         session_token=body.session_token,
         candidatos_ids=body.candidatos_ids,
         candidato_preferido_id=body.candidato_preferido_id,
+        departamentos_ids=body.departamentos_ids,
+        departamento_outros=body.departamento_outros,
         aceite_lgpd=body.aceite_lgpd,
         ip=await get_client_ip(request),
         user_agent=get_user_agent(request),

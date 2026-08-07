@@ -8,11 +8,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.webhook import WebhookService
-from app.models import Associado, Preferencia, Resposta, WebhookLog
+from app.models import (
+    Associado,
+    AssociadoDepartamento,
+    Preferencia,
+    Resposta,
+    WebhookLog,
+)
 from app.repositories import (
     AssociadoRepository,
     AuditLogRepository,
     CandidatoRepository,
+    DepartamentoRepository,
     PreferenciaRepository,
     RespostaRepository,
     WebhookLogRepository,
@@ -57,6 +64,7 @@ class SurveyService:
         self.candidato_repo = CandidatoRepository(db)
         self.resposta_repo = RespostaRepository(db)
         self.preferencia_repo = PreferenciaRepository(db)
+        self.departamento_repo = DepartamentoRepository(db)
         self.webhook_log_repo = WebhookLogRepository(db)
         self.audit_repo = AuditLogRepository(db)
         self.webhook_service = WebhookService()
@@ -162,6 +170,8 @@ class SurveyService:
         session_token: str,
         candidatos_ids: list[int],
         candidato_preferido_id: int,
+        departamentos_ids: list[int],
+        departamento_outros: str,
         aceite_lgpd: bool,
         ip: str | None,
         user_agent: str | None,
@@ -194,11 +204,33 @@ class SurveyService:
         if candidato_preferido_id not in candidatos_ids:
             return False, "O candidato preferencial deve estar entre os selecionados"
 
+        departamentos = await self.departamento_repo.list_active()
+        departamento_map = {d.id: d for d in departamentos}
+
+        if not all(did in departamento_map for did in departamentos_ids):
+            return False, "Modalidade inválida"
+
+        # Qual opção exige texto é dado do banco (coluna exige_texto), não o
+        # nome "Outros" nem um id cravado no código.
+        exige_texto = any(
+            departamento_map[did].exige_texto for did in departamentos_ids
+        )
+        texto_outros = departamento_outros.strip()
+
+        if exige_texto and not texto_outros:
+            return False, "Descreva qual modalidade em Outros"
+
+        # Sem a opção que exige texto, o campo é descartado: não se guarda
+        # texto órfão de quem preencheu e depois desmarcou.
+        if not exige_texto:
+            texto_outros = ""
+
         associado = Associado(
             nome=session["nome"],
             cpf=cpf,
             numero_socio=numero_socio,
             telefone=session["telefone"],
+            departamento_outros=texto_outros or None,
             ip=ip or session.get("ip"),
             user_agent=user_agent or session.get("user_agent"),
             aceite_lgpd=aceite_lgpd,
@@ -227,6 +259,16 @@ class SurveyService:
                 candidato_preferido_id=candidato_preferido_id,
             )
         )
+
+        self.db.add_all(
+            [
+                AssociadoDepartamento(
+                    associado_id=associado.id, departamento_id=did
+                )
+                for did in departamentos_ids
+            ]
+        )
+        await self.db.flush()
 
         candidatos_nomes = [candidato_map[cid].nome for cid in candidatos_ids]
         preferido_nome = candidato_map[candidato_preferido_id].nome
