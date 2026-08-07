@@ -210,6 +210,75 @@ class TestModalidadesNasExportacoes:
         assert res.json()[0]["departamentos"] == ["Piscina"]
         assert res.json()[0]["departamento_outros"] == ""
 
+    async def test_csv_respeita_a_ordem_e_nao_o_nome(
+        self, client, db_session, admin_token, valid_cpf
+    ):
+        """Mesmo motivo do teste equivalente em test_departamentos.py: sob a
+        collation do banco, ordenar por nome devolveria outra sequência.
+        "Zumba" (ordem 1) antes de "Atletismo" (ordem 2) torna a divergência
+        óbvia — uma regressão para sort por nome devolveria a ordem trocada."""
+        await _criar_associado(
+            db_session,
+            "Socio Mod Ordem CSV",
+            valid_cpf(),
+            "0053",
+            "11922220006",
+            modalidades=["Zumba", "Atletismo"],
+            outros=None,
+        )
+
+        res = await client.get(
+            "/api/admin/export/csv",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        linhas = list(csv.reader(io.StringIO(res.text)))
+        assert linhas[1][linhas[0].index("Modalidades")] == "Zumba, Atletismo"
+
+    async def test_excel_respeita_a_ordem_e_nao_o_nome(
+        self, client, db_session, admin_token, valid_cpf
+    ):
+        """Mesmo motivo do teste equivalente em test_departamentos.py."""
+        from openpyxl import load_workbook
+
+        await _criar_associado(
+            db_session,
+            "Socio Mod Ordem XLS",
+            valid_cpf(),
+            "0054",
+            "11922220007",
+            modalidades=["Zumba", "Atletismo"],
+            outros=None,
+        )
+
+        res = await client.get(
+            "/api/admin/export/excel",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        ws = load_workbook(io.BytesIO(res.content)).active
+        cabecalho = [c.value for c in ws[1]]
+        assert ws[2][cabecalho.index("Modalidades")].value == "Zumba, Atletismo"
+
+    async def test_busca_do_admin_respeita_a_ordem_e_nao_o_nome(
+        self, client, db_session, admin_token, valid_cpf
+    ):
+        """Mesmo motivo do teste equivalente em test_departamentos.py."""
+        cpf = valid_cpf()
+        await _criar_associado(
+            db_session,
+            "Socio Mod Ordem Busca",
+            cpf,
+            "0055",
+            "11922220008",
+            modalidades=["Zumba", "Atletismo"],
+            outros=None,
+        )
+
+        res = await client.get(
+            f"/api/admin/search?cpf={cpf}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.json()[0]["departamentos"] == ["Zumba", "Atletismo"]
+
 
 class TestPayloadDoWebhook:
     """O payload nunca teve teste automatizado — o campo numero_socio só foi
@@ -276,3 +345,56 @@ class TestPayloadDoWebhook:
 
         log = (await db_session.execute(select(WebhookLog))).scalars().first()
         assert json.loads(log.payload)["departamento_outros"] == ""
+
+    async def test_payload_respeita_a_ordem_e_nao_o_nome(
+        self, client, db_session, valid_cpf, numero_socio, read_otp_code
+    ):
+        """Mesmo motivo do teste equivalente em test_departamentos.py: sob a
+        collation do banco, ordenar por nome devolveria outra sequência. Não
+        usa a fixture `departamentos` porque os nomes dela ("Modalidade 1",
+        "Modalidade 2"...) coincidem em ordem alfabética e em `ordem` — não
+        provariam nada. `departamentos_ids` é enviado na ordem alfabética
+        (Atletismo antes de Zumba), que também é o oposto de `ordem`: só o
+        resultado correto (ordenado por `ordem`) bate com o esperado."""
+        import json
+
+        from sqlalchemy import select
+
+        from app.models import Departamento, WebhookLog
+
+        db_session.add_all(
+            [
+                Departamento(nome="Zumba", ordem=1, ativo=True),
+                Departamento(nome="Atletismo", ordem=2, ativo=True),
+            ]
+        )
+        await db_session.commit()
+        deps = (
+            (
+                await db_session.execute(
+                    select(Departamento).order_by(Departamento.ordem)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        zumba, atletismo = deps[0], deps[1]
+
+        token, cid = await _preparar_voto_export(
+            client, db_session, valid_cpf, numero_socio, read_otp_code, "11922220010"
+        )
+
+        await client.post(
+            "/api/survey/submit",
+            json={
+                "session_token": token,
+                "candidatos_ids": [cid],
+                "candidato_preferido_id": cid,
+                "departamentos_ids": [atletismo.id, zumba.id],
+                "aceite_lgpd": True,
+            },
+        )
+
+        log = (await db_session.execute(select(WebhookLog))).scalars().first()
+        payload = json.loads(log.payload)
+        assert payload["departamentos"] == ["Zumba", "Atletismo"]
