@@ -437,10 +437,16 @@ function updateDepartamentosUI() {
     document.getElementById('departamentoOutrosWrap').classList.toggle('d-none', !marcado);
 }
 
+// Sócio digita sem acento no teclado do celular na maioria das vezes
+// ("natacao", "judo", "hidroginastica"), então a busca precisa comparar sem
+// acento dos dois lados — senão metade da lista some da busca mesmo
+// existindo.
+const semAcento = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
 document.getElementById('departamentosBusca').addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase();
+    const q = semAcento(e.target.value);
     document.querySelectorAll('.departamento-item').forEach(item => {
-        const nome = item.querySelector('label').textContent.toLowerCase();
+        const nome = semAcento(item.querySelector('label').textContent);
         item.classList.toggle('d-none', !nome.includes(q));
     });
 });
