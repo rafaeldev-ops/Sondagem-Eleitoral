@@ -530,7 +530,6 @@ Em `app/repositories/__init__.py`, acrescentar `Departamento` ao import da linha
 ```python
 from app.models import (
     Associado,
-    AssociadoDepartamento,
     AuditLog,
     Candidato,
     Departamento,
@@ -539,6 +538,8 @@ from app.models import (
     WebhookLog,
 )
 ```
+
+**Só `Departamento`.** `AssociadoDepartamento` também será necessário neste arquivo, mas apenas na Task 4 (no `selectinload`) — importá-lo agora deixaria um import sem uso, e o `ruff` do projeto seleciona `["E", "F", "W"]`, então F401 reprova o lint.
 
 E, após a classe `CandidatoRepository`:
 
@@ -555,8 +556,6 @@ class DepartamentoRepository:
         )
         return list(result.scalars().all())
 ```
-
-`AssociadoDepartamento` entra no import agora porque a Task 4 vai precisar dele no `selectinload`; deixá-lo aqui evita mexer no mesmo import duas vezes.
 
 - [ ] **Step 5: Acrescentar a rota**
 
@@ -1273,7 +1272,7 @@ Expected: FAIL — `'Modalidades' not in [...]`, `KeyError: 'departamentos'` e `
 
 - [ ] **Step 3: Carregar as modalidades nas duas consultas**
 
-Em `app/repositories/__init__.py`, acrescentar o terceiro `selectinload` **nos dois métodos** (`search_by_cpf`, linhas 42-45, e `list_all_with_details`, linhas 53-56):
+Em `app/repositories/__init__.py`, acrescentar `AssociadoDepartamento` ao import de `app.models` (a Task 2 deliberadamente não o importou, porque até aqui ele não teria uso e o `ruff` reprova F401), e o terceiro `selectinload` **nos dois métodos** (`search_by_cpf`, linhas 42-45, e `list_all_with_details`, linhas 53-56):
 
 ```python
             .options(
