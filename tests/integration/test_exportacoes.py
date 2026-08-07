@@ -398,3 +398,40 @@ class TestPayloadDoWebhook:
         log = (await db_session.execute(select(WebhookLog))).scalars().first()
         payload = json.loads(log.payload)
         assert payload["departamentos"] == ["Zumba", "Atletismo"]
+
+    async def test_deserialize_payload_tolera_campos_historicos(self):
+        """O worker de retry (SurveyService.retry_pending_webhook) re-hidrata
+        payloads GRAVADOS em webhook_logs chamando deserialize_payload, sem
+        try/except em volta. Linhas gravadas antes de numero_socio,
+        departamentos e departamento_outros existirem não carregam esses
+        campos — e sem default, WebhookPayload(**json.loads(...)) levanta
+        ValidationError ANTES de log.tentativas ser incrementado, então uma
+        única linha antiga trava o worker de retry para sempre (ele
+        reprocessa a mesma linha em loop e nunca chega às pendências
+        legítimas atrás dela). Todo campo adicionado a WebhookPayload depois
+        da v1 precisa de default, para sempre, por causa disso."""
+        import json
+
+        from app.integrations.webhook import WebhookService
+
+        formato_original = {
+            "nome": "Maria Santos",
+            "cpf": "12345678909",
+            "telefone": "11999998888",
+            "candidatos": ["Fulano"],
+            "preferido": "Fulano",
+            "aceite_lgpd": True,
+            "data": "2024-01-01T00:00:00",
+        }
+        payload = WebhookService.deserialize_payload(json.dumps(formato_original))
+        assert payload.numero_socio == ""
+        assert payload.departamentos == []
+        assert payload.departamento_outros == ""
+
+        formato_pos_numero_socio = {**formato_original, "numero_socio": "1234"}
+        payload = WebhookService.deserialize_payload(
+            json.dumps(formato_pos_numero_socio)
+        )
+        assert payload.numero_socio == "1234"
+        assert payload.departamentos == []
+        assert payload.departamento_outros == ""

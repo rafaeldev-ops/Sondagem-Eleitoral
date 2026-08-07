@@ -176,14 +176,23 @@ class SessionResponse(BaseModel):
 
 class WebhookPayload(BaseModel):
     nome: str
-    numero_socio: str
+    # numero_socio, departamentos e departamento_outros têm default: o
+    # worker de retry re-hidrata payloads GRAVADOS em webhook_logs
+    # (deserialize_payload -> WebhookPayload(**json.loads(...))), e linhas
+    # antigas não têm esses campos. Sem default, uma única linha antiga
+    # trava o retry para sempre (ValidationError não tratado no loop do
+    # SurveyService, antes do contador de tentativas ser incrementado).
+    # Isso NÃO muda o payload de saída: submit_vote sempre define os três
+    # explicitamente e model_dump() sempre emite todos os campos
+    # declarados.
+    numero_socio: str = ""
     cpf: str
     telefone: str
     candidatos: list[str]
     preferido: str
-    departamentos: list[str]
+    departamentos: list[str] = Field(default_factory=list)
     # String vazia quando não se aplica, nunca None: o n8n trata campo
     # ausente e campo nulo de formas diferentes.
-    departamento_outros: str
+    departamento_outros: str = ""
     aceite_lgpd: bool
     data: str
