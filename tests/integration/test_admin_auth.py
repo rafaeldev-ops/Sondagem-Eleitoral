@@ -27,3 +27,23 @@ class TestAdminLogin:
             "/api/admin/stats", headers={"Authorization": f"Bearer {admin_token}"}
         )
         assert res.status_code == 200
+
+
+class TestRotaDeRetryDoWebhook:
+    """A rota foi renomeada de /admin/pipefy/retry para /admin/webhook/retry
+    quando a integração deixou de ser específica do Pipefy."""
+
+    async def test_rota_nova_responde(self, client, admin_token):
+        res = await client.post(
+            "/api/admin/webhook/retry",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.status_code == 200
+        assert "retried" in res.json()
+
+    async def test_rota_antiga_nao_existe_mais(self, client, admin_token):
+        res = await client.post(
+            "/api/admin/pipefy/retry",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert res.status_code == 404

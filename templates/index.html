@@ -12,12 +12,36 @@
 </head>
 <body data-recaptcha-site-key="{{ recaptcha_site_key }}">
     <div class="container-fluid min-vh-100 d-flex flex-column p-0">
-        <header class="brand-header text-center py-3 sticky-top">
-            <h1 class="h5 mb-0 fw-bold">{{ app_name }}</h1>
-            <div class="progress mt-2 mx-auto step-progress">
-                <div class="progress-bar" id="stepProgress" role="progressbar"></div>
-            </div>
-            <small id="stepLabel">Etapa 1 de 4 — Cadastro</small>
+        <header class="brand-header sticky-top">
+            <h1 class="brand-lockup">
+                <span class="brand-title">Sondagem <span class="brand-year">2026</span></span>
+                <span class="brand-wordmark">{{ app_name }}</span>
+            </h1>
+
+            <!-- Uma bolinha por etapa. O estado de cada uma é classe (is-done /
+                 is-current), nunca atributo de estilo embutido: a CSP não tem
+                 'unsafe-inline' em style-src, e test_templates_nao_tem_atributo_style
+                 varre o HTML renderizado atrás desse atributo — inclusive dentro
+                 de comentários como este, que também vão para o navegador.
+                 Ver app/middlewares/security_headers.py. -->
+            <ol class="step-dots" id="stepDots" aria-label="Progresso da sondagem">
+                <li class="step-dot" data-step="1">
+                    <span class="step-dot-face"><span class="step-dot-num">1</span></span>
+                </li>
+                <li class="step-dot" data-step="2">
+                    <span class="step-dot-face"><span class="step-dot-num">2</span></span>
+                </li>
+                <li class="step-dot" data-step="3">
+                    <span class="step-dot-face"><span class="step-dot-num">3</span></span>
+                </li>
+                <li class="step-dot" data-step="4">
+                    <span class="step-dot-face"><span class="step-dot-num">4</span></span>
+                </li>
+                <li class="step-dot" data-step="5">
+                    <span class="step-dot-face"><span class="step-dot-num">5</span></span>
+                </li>
+            </ol>
+            <p class="step-caption" id="stepLabel">Etapa 1 de 5 — Cadastro</p>
         </header>
 
         <main class="flex-grow-1 py-4 px-3">
@@ -25,7 +49,7 @@
             <section id="step1" class="step-panel">
                 <div class="card shadow-sm border-0 mx-auto step-card">
                     <div class="card-body p-4">
-                        <h2 class="h6 mb-1 fw-bold">Validação de Acesso</h2>
+                        <h2 class="section-title">Validação de Acesso</h2>
                         <p class="subtitle-muted mb-3">Identificação do Associado</p>
                         <form id="cadastroForm" novalidate>
                             <div class="mb-3">
@@ -37,6 +61,24 @@
                                 <input type="text" class="form-control form-control-lg" id="cpf" inputmode="numeric" required maxlength="14" autocomplete="off" placeholder="000.000.000-00">
                                 <div class="invalid-feedback" id="cpfFeedback"></div>
                                 <div class="valid-feedback">CPF válido</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="numeroSocio" class="form-label">Número de Sócio * (4 dígitos)</label>
+                                <input type="text" class="form-control form-control-lg" id="numeroSocio" inputmode="numeric" required maxlength="4" minlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="0000">
+                                <div class="invalid-feedback" id="numeroSocioFeedback">Informe os 4 dígitos do seu número de sócio</div>
+                            </div>
+                            <!-- Declaração do próprio associado; não é conferida
+                                 contra o cadastro do clube. Desmarcado é uma
+                                 resposta ("não sou titular"), não uma omissão —
+                                 daí a dica abaixo dizer isso em voz alta. -->
+                            <div class="mb-3">
+                                <div class="choice-card">
+                                    <input class="form-check-input" type="checkbox" id="titular">
+                                    <label class="form-check-label" for="titular">
+                                        <span class="choice-title">Sou titular do grupo</span>
+                                        <span class="choice-hint">Deixe desmarcado se você é dependente no grupo familiar.</span>
+                                    </label>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="telefone" class="form-label">Celular (WhatsApp) *</label>
@@ -55,7 +97,7 @@
             <section id="step2" class="step-panel d-none">
                 <div class="card shadow-sm border-0 mx-auto step-card">
                     <div class="card-body p-4 text-center">
-                        <h2 class="h6 mb-1 fw-bold">Confirmação de Token</h2>
+                        <h2 class="section-title">Confirmação de Token</h2>
                         <p class="subtitle-muted mb-4">Enviamos um código para o número <strong id="phoneDisplay"></strong></p>
                         <form id="otpForm">
                             <div class="otp-inputs d-flex justify-content-center gap-2 mb-3">
@@ -77,7 +119,7 @@
             <!-- Etapa 3: Candidatos -->
             <section id="step3" class="step-panel d-none">
                 <div class="mx-auto step-card">
-                    <h2 class="h6 fw-bold mb-1">Seleção de Pré-Candidatos</h2>
+                    <h2 class="section-title">Seleção de Pré-Candidatos</h2>
                     <p class="subtitle-muted mb-3">Escolha em quem você tem intenção de votar (máximo <span id="maxCandidatos">20</span>):</p>
                     <div id="candidatosGrid"></div>
 
@@ -91,11 +133,31 @@
                 </div>
             </section>
 
-            <!-- Etapa 4: LGPD -->
+            <!-- Etapa 4: Modalidades -->
             <section id="step4" class="step-panel d-none">
+                <div class="mx-auto step-card">
+                    <h2 class="section-title">Modalidades e Departamentos</h2>
+                    <p class="subtitle-muted mb-3">Quais modalidade/departamentos do clube você participa? Marque todas que se aplicam.</p>
+
+                    <input type="search" class="form-control mb-2" id="departamentosBusca" placeholder="Buscar modalidade..." autocomplete="off" aria-label="Buscar modalidade">
+
+                    <div id="departamentosLista" class="departamentos-lista"></div>
+
+                    <div class="mb-3 mt-2 d-none" id="departamentoOutrosWrap">
+                        <label for="departamentoOutros" class="form-label">Qual? Descreva a modalidade ou departamento *</label>
+                        <input type="text" class="form-control" id="departamentoOutros" maxlength="100" autocomplete="off" placeholder="Ex.: Xadrez">
+                    </div>
+
+                    <p class="subtitle-muted small mb-2"><span id="departamentosCount">0</span> selecionada(s)</p>
+                    <button type="button" class="btn btn-primary btn-lg w-100" id="btnDepartamentos">CONTINUAR</button>
+                </div>
+            </section>
+
+            <!-- Etapa 5: LGPD -->
+            <section id="step5" class="step-panel d-none">
                 <div class="card shadow-sm border-0 mx-auto step-card">
                     <div class="card-body p-4">
-                        <h2 class="h6 mb-3 fw-bold">Consentimento</h2>
+                        <h2 class="section-title">Consentimento</h2>
                         <div class="form-check mb-4">
                             <input class="form-check-input" type="checkbox" id="lgpdCheck">
                             <label class="form-check-label small" for="lgpdCheck">

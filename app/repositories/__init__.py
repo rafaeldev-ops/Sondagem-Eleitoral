@@ -2,8 +2,18 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Associado, AuditLog, Candidato, PipefyLog, Preferencia, Resposta
+from app.models import (
+    Associado,
+    AssociadoDepartamento,
+    AuditLog,
+    Candidato,
+    Departamento,
+    Preferencia,
+    Resposta,
+    WebhookLog,
+)
 from app.utils.cpf import normalize_cpf
+from app.utils.socio import normalize_numero_socio
 
 
 class AssociadoRepository:
@@ -13,6 +23,14 @@ class AssociadoRepository:
     async def get_by_cpf(self, cpf: str) -> Associado | None:
         result = await self.db.execute(
             select(Associado).where(Associado.cpf == normalize_cpf(cpf))
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_numero_socio(self, numero_socio: str) -> Associado | None:
+        result = await self.db.execute(
+            select(Associado).where(
+                Associado.numero_socio == normalize_numero_socio(numero_socio)
+            )
         )
         return result.scalar_one_or_none()
 
@@ -33,6 +51,9 @@ class AssociadoRepository:
             .options(
                 selectinload(Associado.respostas).selectinload(Resposta.candidato),
                 selectinload(Associado.preferencia).selectinload(Preferencia.candidato_preferido),
+                selectinload(Associado.departamentos).selectinload(
+                    AssociadoDepartamento.departamento
+                ),
             )
             .order_by(Associado.data_resposta.desc())
         )
@@ -44,6 +65,9 @@ class AssociadoRepository:
             .options(
                 selectinload(Associado.respostas).selectinload(Resposta.candidato),
                 selectinload(Associado.preferencia).selectinload(Preferencia.candidato_preferido),
+                selectinload(Associado.departamentos).selectinload(
+                    AssociadoDepartamento.departamento
+                ),
             )
             .order_by(Associado.data_resposta.desc())
         )
@@ -88,6 +112,19 @@ class CandidatoRepository:
         return result.scalar_one()
 
 
+class DepartamentoRepository:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def list_active(self) -> list[Departamento]:
+        result = await self.db.execute(
+            select(Departamento)
+            .where(Departamento.ativo.is_(True))
+            .order_by(Departamento.ordem)
+        )
+        return list(result.scalars().all())
+
+
 class RespostaRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -107,22 +144,22 @@ class PreferenciaRepository:
         return preferencia
 
 
-class PipefyLogRepository:
+class WebhookLogRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def create(self, log: PipefyLog) -> PipefyLog:
+    async def create(self, log: WebhookLog) -> WebhookLog:
         self.db.add(log)
         await self.db.flush()
         return log
 
-    async def list_pending(self) -> list[PipefyLog]:
+    async def list_pending(self) -> list[WebhookLog]:
         result = await self.db.execute(
-            select(PipefyLog).where(PipefyLog.status.in_(["pending", "failed"]))
+            select(WebhookLog).where(WebhookLog.status.in_(["pending", "failed"]))
         )
         return list(result.scalars().all())
 
-    async def update(self, log: PipefyLog) -> PipefyLog:
+    async def update(self, log: WebhookLog) -> WebhookLog:
         await self.db.flush()
         return log
 

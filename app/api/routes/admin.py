@@ -190,7 +190,13 @@ async def search_cpf(
             "id": a.id,
             "nome": a.nome,
             "cpf": a.cpf,
+            "numero_socio": a.numero_socio,
             "telefone": a.telefone,
+            "departamentos": [
+                ad.departamento.nome
+                for ad in sorted(a.departamentos, key=lambda x: x.departamento.ordem)
+            ],
+            "departamento_outros": a.departamento_outros or "",
             "data_resposta": a.data_resposta.isoformat(),
             "candidatos": [r.candidato.nome for r in a.respostas],
             "preferido": a.preferencia.candidato_preferido.nome if a.preferencia else None,
@@ -227,12 +233,12 @@ async def export_excel(
     )
 
 
-@router.post("/pipefy/retry")
-async def retry_pipefy(
+@router.post("/webhook/retry")
+async def retry_webhook(
     db: AsyncSession = Depends(get_db),
     otp_service: OTPService = Depends(get_otp_service),
     _: dict = Depends(get_admin_token),
 ) -> dict:
     service = SurveyService(db, otp_service)
-    count = await service.retry_pending_pipefy()
+    count = await service.retry_pending_webhook()
     return {"retried": count, "message": f"{count} envio(s) reprocessado(s)"}

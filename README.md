@@ -1,6 +1,6 @@
 # Sondagem Clube — Sondagem de Intenção de Votos
 
-Aplicação web mobile-first para sondagem de intenção de votos entre associados de um clube, com validação de CPF, autenticação OTP, integração Pipefy e painel administrativo.
+Aplicação web mobile-first para sondagem de intenção de votos entre associados de um clube, com validação de CPF, autenticação OTP, integração via webhook e painel administrativo.
 
 ## Stack
 
@@ -63,7 +63,7 @@ uvicorn app.main:app --reload
 
 - [Instalação](docs/INSTALACAO.md)
 - [API](docs/API.md)
-- [Integração Pipefy](docs/PIPEFY.md)
+- [Integração via Webhook](docs/WEBHOOK.md)
 - [Deploy em Produção](docs/DEPLOY.md)
 
 ## Estrutura
@@ -73,7 +73,7 @@ app/
 ├── api/           # Rotas REST
 ├── core/          # Config, segurança, logging
 ├── database/      # Sessão SQLAlchemy
-├── integrations/  # OTP providers, Pipefy, reCAPTCHA
+├── integrations/  # OTP providers, Webhook, reCAPTCHA
 ├── middlewares/   # Headers de segurança
 ├── models/        # Modelos ORM
 ├── repositories/  # Acesso a dados

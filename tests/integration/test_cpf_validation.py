@@ -12,7 +12,9 @@ class TestValidateCpf:
         # de chegar no handler — nunca retorna 200 com valid:false.
         assert res.status_code == 422
 
-    async def test_cpf_already_submitted_is_unavailable(self, client, db_session, valid_cpf):
+    async def test_cpf_already_submitted_is_unavailable(
+        self, client, db_session, valid_cpf, numero_socio
+    ):
         from app.models import Associado
         from app.utils.cpf import normalize_cpf
 
@@ -22,6 +24,7 @@ class TestValidateCpf:
                 nome="Alguém",
                 cpf=normalize_cpf(cpf),
                 telefone="11988887777",
+                numero_socio=numero_socio(),
                 aceite_lgpd=True,
             )
         )

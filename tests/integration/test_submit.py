@@ -1,9 +1,18 @@
-async def _register_verify(client, valid_cpf, read_otp_code, telefone, nome="Teste Fluxo"):
+async def _register_verify(
+    client, valid_cpf, numero_socio, read_otp_code, telefone, nome="Teste Fluxo"
+):
     """Completa cadastro + verificação de OTP, devolvendo o session_token pronto
     para submissão — evita repetir esse bloco em cada teste de submit."""
     res = await client.post(
         "/api/survey/register",
-        json={"nome": nome, "cpf": valid_cpf(), "telefone": telefone, "recaptcha_token": ""},
+        json={
+            "nome": nome,
+            "cpf": valid_cpf(),
+            "telefone": telefone,
+            "numero_socio": numero_socio(),
+            "titular": True,
+            "recaptcha_token": "",
+        },
     )
     session_token = res.json()["session_token"]
     code = read_otp_code(telefone)
@@ -15,7 +24,9 @@ async def _register_verify(client, valid_cpf, read_otp_code, telefone, nome="Tes
 
 
 class TestSubmit:
-    async def test_full_flow_success(self, client, db_session, valid_cpf, read_otp_code):
+    async def test_full_flow_success(
+        self, client, db_session, valid_cpf, numero_socio, read_otp_code, departamentos
+    ):
         from app.models import Candidato
 
         c1 = Candidato(nome="Fulano", apelido="Fu", ativo=True)
@@ -25,8 +36,11 @@ class TestSubmit:
         await db_session.refresh(c1)
         await db_session.refresh(c2)
 
+        deps = await departamentos(quantos=1, com_outros=False)
+        dep = deps[0]
+
         session_token = await _register_verify(
-            client, valid_cpf, read_otp_code, "11988888001"
+            client, valid_cpf, numero_socio, read_otp_code, "11988888001"
         )
 
         res = await client.post(
@@ -35,13 +49,14 @@ class TestSubmit:
                 "session_token": session_token,
                 "candidatos_ids": [c1.id, c2.id],
                 "candidato_preferido_id": c1.id,
+                "departamentos_ids": [dep.id],
                 "aceite_lgpd": True,
             },
         )
         assert res.status_code == 200
 
     async def test_submit_without_lgpd_consent_rejected(
-        self, client, db_session, valid_cpf, read_otp_code
+        self, client, db_session, valid_cpf, numero_socio, read_otp_code, departamentos
     ):
         from app.models import Candidato
 
@@ -50,8 +65,11 @@ class TestSubmit:
         await db_session.commit()
         await db_session.refresh(c1)
 
+        deps = await departamentos(quantos=1, com_outros=False)
+        dep = deps[0]
+
         session_token = await _register_verify(
-            client, valid_cpf, read_otp_code, "11988888002"
+            client, valid_cpf, numero_socio, read_otp_code, "11988888002"
         )
 
         res = await client.post(
@@ -60,16 +78,20 @@ class TestSubmit:
                 "session_token": session_token,
                 "candidatos_ids": [c1.id],
                 "candidato_preferido_id": c1.id,
+                "departamentos_ids": [dep.id],
                 "aceite_lgpd": False,
             },
         )
         assert res.status_code == 422
 
     async def test_submit_more_than_20_candidatos_rejected(
-        self, client, valid_cpf, read_otp_code
+        self, client, valid_cpf, numero_socio, read_otp_code, departamentos
     ):
+        deps = await departamentos(quantos=1, com_outros=False)
+        dep = deps[0]
+
         session_token = await _register_verify(
-            client, valid_cpf, read_otp_code, "11988888003"
+            client, valid_cpf, numero_socio, read_otp_code, "11988888003"
         )
         res = await client.post(
             "/api/survey/submit",
@@ -77,6 +99,7 @@ class TestSubmit:
                 "session_token": session_token,
                 "candidatos_ids": list(range(1, 22)),  # 21 ids
                 "candidato_preferido_id": 1,
+                "departamentos_ids": [dep.id],
                 "aceite_lgpd": True,
             },
         )
@@ -84,7 +107,7 @@ class TestSubmit:
         assert res.status_code == 422
 
     async def test_duplicate_cpf_blocked_on_second_submission(
-        self, client, db_session, valid_cpf, read_otp_code
+        self, client, db_session, valid_cpf, numero_socio, read_otp_code, departamentos
     ):
         from app.models import Candidato
 
@@ -92,6 +115,9 @@ class TestSubmit:
         db_session.add(c1)
         await db_session.commit()
         await db_session.refresh(c1)
+
+        deps = await departamentos(quantos=1, com_outros=False)
+        dep = deps[0]
 
         cpf = valid_cpf()
 
@@ -102,6 +128,8 @@ class TestSubmit:
                 "nome": "Primeira Pessoa",
                 "cpf": cpf,
                 "telefone": "11988888004",
+                "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -117,6 +145,7 @@ class TestSubmit:
                 "session_token": session1,
                 "candidatos_ids": [c1.id],
                 "candidato_preferido_id": c1.id,
+                "departamentos_ids": [dep.id],
                 "aceite_lgpd": True,
             },
         )

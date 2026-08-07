@@ -10,7 +10,7 @@ class TestOtpNeverStoredInPlaintext:
     """
 
     async def test_redis_key_never_contains_plaintext_code(
-        self, client, valid_cpf, read_otp_code
+        self, client, valid_cpf, numero_socio, read_otp_code
     ):
         from app.services.otp_service import RedisService
 
@@ -21,6 +21,8 @@ class TestOtpNeverStoredInPlaintext:
                 "nome": "Teste Redis",
                 "cpf": valid_cpf(),
                 "telefone": telefone,
+                "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )

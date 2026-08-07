@@ -37,6 +37,7 @@ Cadastra associado e envia OTP.
 {
   "nome": "João Silva",
   "cpf": "12345678909",
+  "numero_socio": "1234",
   "telefone": "11999998888",
   "recaptcha_token": "..."
 }
@@ -99,9 +100,25 @@ Lista candidatos ativos.
 
 ---
 
+### GET `/survey/departamentos`
+
+Lista modalidades/departamentos ativos.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "nome": "Natação"
+  }
+]
+```
+
+---
+
 ### POST `/survey/submit`
 
-Registra voto e dispara webhook Pipefy.
+Registra voto e dispara o webhook configurado.
 
 **Body:**
 ```json
@@ -109,9 +126,16 @@ Registra voto e dispara webhook Pipefy.
   "session_token": "abc...",
   "candidatos_ids": [1, 2, 3],
   "candidato_preferido_id": 2,
+  "departamentos_ids": [1, 4],
+  "departamento_outros": "",
   "aceite_lgpd": true
 }
 ```
+
+| Campo | Obrigatório | Descrição |
+|-------|-------------|-----------|
+| departamentos_ids | Sim, ao menos 1 | IDs das modalidades frequentadas |
+| departamento_outros | Não | Texto livre (máx. 100 caracteres), usado quando a modalidade "Outros" está entre os IDs enviados |
 
 ---
 
@@ -186,9 +210,9 @@ Exporta respostas em Excel (.xlsx).
 
 ---
 
-### POST `/admin/pipefy/retry`
+### POST `/admin/webhook/retry`
 
-Reprocessa envios Pipefy pendentes/falhos.
+Reprocessa envios de webhook pendentes/falhos.
 
 ---
 

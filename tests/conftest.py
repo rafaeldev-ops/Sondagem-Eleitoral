@@ -34,12 +34,31 @@ os.environ.setdefault("OTP_MAX_ATTEMPTS", "5")
 os.environ.setdefault("OTP_RESEND_COOLDOWN_SECONDS", "60")
 os.environ.setdefault("RECAPTCHA_SECRET_KEY", "")
 os.environ.setdefault("RECAPTCHA_SITE_KEY", "")
-os.environ.setdefault("PIPEFY_API_TOKEN", "")
-os.environ.setdefault("PIPEFY_WEBHOOK_URL", "")
+os.environ.setdefault("WEBHOOK_TOKEN", "")
+os.environ.setdefault("WEBHOOK_URL", "")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "admin123")
 os.environ.setdefault("RATE_LIMIT_DEFAULT", "1000/minute")
 os.environ.setdefault("RATE_LIMIT_OTP", "1000/minute")
+# Também afrouxado, pelo mesmo motivo dos dois acima: o rate limit é por IP
+# e todos os testes batem do mesmo 127.0.0.1 dentro da mesma janela de 1
+# minuto. O default de produção (10/minute) comporta os testes que existiam
+# antes de tests/integration/test_numero_socio.py, mas essa suíte sozinha já
+# soma 6 chamadas a /register — somado ao resto, estoura o limite e derruba
+# testes que nada têm a ver com rate limit (viram 429 em vez de 200).
+# test_limites_do_fluxo_publico_batem_com_a_configuracao (em
+# tests/security/test_rate_limits.py) lê esse valor de volta em vez de
+# comparar com um número fixo, então continua válido com qualquer valor aqui.
+os.environ.setdefault("RATE_LIMIT_REGISTER", "1000/minute")
+# Mesmo motivo e mesma proteção de test_limites_do_fluxo_publico_batem_com_a_
+# configuracao: /verify-otp (default de produção 15/minute) e /submit
+# (default 10/minute) também são chamados várias vezes por teste em vários
+# arquivos, na mesma janela compartilhada por IP. Sem isso, adicionar mais um
+# teste de fluxo completo em qualquer arquivo pode empurrar a contagem total
+# da suíte para além do limite de produção e derrubar testes que não têm
+# nada a ver com rate limit.
+os.environ.setdefault("RATE_LIMIT_VERIFY_OTP", "1000/minute")
+os.environ.setdefault("RATE_LIMIT_SUBMIT", "1000/minute")
 # Deliberadamente baixo, ao contrário dos outros: tests/security/
 # test_rate_limits.py precisa que o limite seja realmente atingido.
 #
@@ -58,6 +77,7 @@ os.environ.setdefault("HTTPS_ONLY", "false")
 os.environ.setdefault("UPLOAD_DIR", "uploads/candidatos")
 os.environ.setdefault("MAX_UPLOAD_SIZE_MB", "5")
 
+import itertools
 import re
 import socket
 import subprocess
@@ -259,6 +279,59 @@ def valid_cpf():
         return "".join(map(str, base)) + str(d1) + str(d2)
 
     return generate
+
+
+@pytest.fixture
+def numero_socio():
+    """
+    Gera números de sócio de 4 dígitos sequenciais (0001, 0002, ...), únicos
+    dentro de UM teste. A fixture é function-scoped, então o contador
+    reinicia do 1 a cada teste — não é ela quem garante números distintos
+    ENTRE testes, isso é a fixture autouse `_clean_database`, que limpa a
+    tabela antes de cada teste. O sequencial (em vez de random) evita só a
+    colisão entre duas chamadas dentro do MESMO teste, que quebraria a
+    constraint UNIQUE de forma intermitente. O `% 10000` existe para nunca
+    gerar mais de 4 dígitos; na prática nenhum teste chama a fixture perto
+    de 10.000 vezes, então esse teto não é alcançado.
+    """
+    contador = itertools.count(1)
+
+    def generate() -> str:
+        return f"{next(contador) % 10000:04d}"
+
+    return generate
+
+
+@pytest_asyncio.fixture
+async def departamentos(db_session):
+    """
+    Cria departamentos para o teste. O seed real vive na migration 006, que
+    a suíte não roda (o schema vem de create_all) — então cada teste que
+    precisa de modalidades cria as suas.
+
+    Devolve os objetos já com id, na ordem em que foram criados; quando
+    com_outros=True o último é a opção que exige texto complementar.
+    """
+
+    async def create(quantos: int = 3, com_outros: bool = True):
+        from app.models import Departamento
+
+        criados = [
+            Departamento(nome=f"Modalidade {i}", ordem=i, ativo=True)
+            for i in range(1, quantos + 1)
+        ]
+        if com_outros:
+            criados.append(
+                Departamento(nome="Outros", ordem=999, exige_texto=True, ativo=True)
+            )
+
+        db_session.add_all(criados)
+        await db_session.commit()
+        for d in criados:
+            await db_session.refresh(d)
+        return criados
+
+    return create
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

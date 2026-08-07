@@ -118,7 +118,7 @@ class TestCsrf:
         ac = cliente_com_cookies(
             **{ADMIN_TOKEN_COOKIE: admin_token, ADMIN_CSRF_COOKIE: "valor-csrf"}
         )
-        assert (await ac.post("/api/admin/pipefy/retry")).status_code == 403
+        assert (await ac.post("/api/admin/webhook/retry")).status_code == 403
 
     async def test_post_por_cookie_com_header_csrf_errado_e_bloqueado(
         self, cliente_com_cookies, admin_token
@@ -128,7 +128,7 @@ class TestCsrf:
             **{ADMIN_TOKEN_COOKIE: admin_token, ADMIN_CSRF_COOKIE: "valor-csrf"}
         )
         res = await ac.post(
-            "/api/admin/pipefy/retry", headers={"X-CSRF-Token": "chute-do-atacante"}
+            "/api/admin/webhook/retry", headers={"X-CSRF-Token": "chute-do-atacante"}
         )
         assert res.status_code == 403
 
@@ -137,14 +137,14 @@ class TestCsrf:
     ):
         """Mandar só o header, sem o cookie, não pode bastar."""
         ac = cliente_com_cookies(**{ADMIN_TOKEN_COOKIE: admin_token})
-        res = await ac.post("/api/admin/pipefy/retry", headers={"X-CSRF-Token": "valor-csrf"})
+        res = await ac.post("/api/admin/webhook/retry", headers={"X-CSRF-Token": "valor-csrf"})
         assert res.status_code == 403
 
     async def test_post_por_cookie_com_csrf_correto_passa(self, cliente_com_cookies, admin_token):
         ac = cliente_com_cookies(
             **{ADMIN_TOKEN_COOKIE: admin_token, ADMIN_CSRF_COOKIE: "valor-csrf"}
         )
-        res = await ac.post("/api/admin/pipefy/retry", headers={"X-CSRF-Token": "valor-csrf"})
+        res = await ac.post("/api/admin/webhook/retry", headers={"X-CSRF-Token": "valor-csrf"})
         assert res.status_code == 200
 
     async def test_put_por_cookie_sem_csrf_e_bloqueado(self, cliente_com_cookies, admin_token):
@@ -184,7 +184,7 @@ class TestBearerContinuaValendo:
 
     async def test_post_por_bearer_nao_exige_csrf(self, client, admin_token):
         res = await client.post(
-            "/api/admin/pipefy/retry",
+            "/api/admin/webhook/retry",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert res.status_code == 200

@@ -7,6 +7,8 @@ const state = {
     candidatos: [],
     selectedIds: new Set(),
     resendInterval: null,
+    departamentos: [],
+    selectedDepartamentoIds: new Set(),
 };
 
 // Limite de seleção do desenho aprovado ("máximo 20"). Também reforçado no
@@ -23,12 +25,13 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
-const steps = ['step1', 'step2', 'step3', 'step4', 'stepThanks'];
+const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'stepThanks'];
 const stepLabels = [
-    'Etapa 1 de 4 — Cadastro',
-    'Etapa 2 de 4 — Verificação',
-    'Etapa 3 de 4 — Candidatos',
-    'Etapa 4 de 4 — Consentimento',
+    'Etapa 1 de 5 — Cadastro',
+    'Etapa 2 de 5 — Verificação',
+    'Etapa 3 de 5 — Candidatos',
+    'Etapa 4 de 5 — Modalidades',
+    'Etapa 5 de 5 — Consentimento',
 ];
 
 function showToast(message) {
@@ -37,14 +40,47 @@ function showToast(message) {
     bootstrap.Toast.getOrCreateInstance(toast).show();
 }
 
+// Uma bolinha por etapa. Concluída vira check, atual fica em destaque
+// esperando ser confirmada, futura fica apagada.
+//
+// Só troca de CLASSE, nunca element.style: a CSP do projeto não tem
+// 'unsafe-inline' em style-src (a barra de progresso anterior escapava
+// disso por ser CSSOM, mas classe é mais simples e não depende dessa
+// distinção). Ver app/middlewares/security_headers.py.
+function renderStepDots(n) {
+    document.querySelectorAll('#stepDots .step-dot').forEach((dot) => {
+        const etapa = Number(dot.dataset.step);
+        // n > stepLabels.length é a tela de agradecimento: aí as cinco
+        // etapas estão concluídas e nenhuma é a atual.
+        const concluida = etapa < n;
+        const atual = etapa === n;
+
+        dot.classList.toggle('is-done', concluida);
+        dot.classList.toggle('is-current', atual);
+
+        if (atual) {
+            dot.setAttribute('aria-current', 'step');
+        } else {
+            dot.removeAttribute('aria-current');
+        }
+    });
+}
+
 function goToStep(n) {
     state.step = n;
     steps.forEach((id, i) => {
         document.getElementById(id).classList.toggle('d-none', i !== n - 1);
     });
-    if (n <= 4) {
-        document.getElementById('stepProgress').style.width = `${n * 25}%`;
+
+    renderStepDots(n);
+
+    // Derivado de stepLabels.length, não cravado: o 4 e o 25 anteriores eram
+    // a mesma informação escrita duas vezes, e ambos ficavam errados assim
+    // que uma etapa era acrescentada.
+    if (n <= stepLabels.length) {
         document.getElementById('stepLabel').textContent = stepLabels[n - 1];
+    } else {
+        document.getElementById('stepLabel').textContent = 'Participação concluída';
     }
 }
 
@@ -143,11 +179,33 @@ document.getElementById('telefone').addEventListener('input', (e) => {
     e.target.value = formatPhone(e.target.value);
 });
 
+document.getElementById('numeroSocio').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+});
+
+// Destaque do cartão "sou titular do grupo". O CSS também cobre isso via
+// :has(input:checked), mas WebView de Android antigo não implementa :has() —
+// a classe aqui é quem garante o retorno visual em todo aparelho.
+const titularCheck = document.getElementById('titular');
+titularCheck.addEventListener('change', () => {
+    titularCheck.closest('.choice-card').classList.toggle('selected', titularCheck.checked);
+});
+
+// Estado inicial das bolinhas: etapa 1 é a atual. goToStep() cuida daqui em
+// diante, mas ele só roda quando o usuário avança.
+renderStepDots(state.step);
+
 // Step 1: Registration
 document.getElementById('cadastroForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!cpfValid) {
         showToast('Verifique o CPF antes de continuar');
+        return;
+    }
+
+    const numeroSocio = document.getElementById('numeroSocio').value;
+    if (!/^[0-9]{4}$/.test(numeroSocio)) {
+        showToast('Informe os 4 dígitos do seu número de sócio');
         return;
     }
 
@@ -162,6 +220,11 @@ document.getElementById('cadastroForm').addEventListener('submit', async (e) => 
             body: JSON.stringify({
                 nome: document.getElementById('nome').value.trim(),
                 cpf: normalizeCPF(cpfInput.value),
+                numero_socio: numeroSocio,
+                // Sempre o estado real do checkbox: desmarcado é a resposta
+                // "não sou titular", não ausência de resposta. O backend
+                // exige o campo (CadastroRequest.titular não tem default).
+                titular: titularCheck.checked,
                 telefone: normalizePhone(document.getElementById('telefone').value),
                 recaptcha_token: recaptchaToken,
             }),
@@ -244,6 +307,7 @@ document.getElementById('otpForm').addEventListener('submit', async (e) => {
         if (!res.ok) throw new Error(data.detail || 'Código inválido');
 
         await loadCandidatos();
+        await loadDepartamentos();
         goToStep(3);
     } catch (err) {
         document.getElementById('otpFeedback').textContent = err.message;
@@ -365,6 +429,88 @@ document.getElementById('btnCandidatos').addEventListener('click', () => {
     goToStep(4);
 });
 
+async function loadDepartamentos() {
+    const res = await fetch('/api/survey/departamentos');
+    state.departamentos = await res.json();
+    renderDepartamentos();
+}
+
+function renderDepartamentos() {
+    const lista = document.getElementById('departamentosLista');
+    lista.innerHTML = state.departamentos.map(d => `
+        <div class="departamento-item" data-id="${d.id}">
+            <input class="form-check-input mt-0" type="checkbox" id="dep-${d.id}">
+            <label class="form-check-label flex-grow-1" for="dep-${d.id}">${escapeHtml(d.nome)}</label>
+        </div>`).join('');
+
+    lista.querySelectorAll('.departamento-item').forEach(item => {
+        const id = Number(item.dataset.id);
+        const check = item.querySelector('input');
+        // Escuta "change" no checkbox, não "click" na linha: o <label for>
+        // associa o texto ao checkbox, então clicar no nome dispara um
+        // click na linha (que alternaria checked manualmente aqui) e, em
+        // seguida, a ativação nativa do label encaminha um click sintético
+        // para o checkbox — cujo próprio passo de pré-ativação alterna
+        // checked de novo, desfazendo a primeira alternância. Resultado
+        // líquido: clicar no nome não fazia nada. "change" dispara uma
+        // única vez, venha o toggle do clique no label, no próprio
+        // checkbox ou do teclado (Tab+Espaço), então não há esse zerar
+        // duplicado. Os listeners são recriados a cada renderDepartamentos()
+        // porque lista.innerHTML descarta os elementos antigos (e seus
+        // listeners) junto — não há acúmulo em re-render.
+        check.addEventListener('change', () => {
+            item.classList.toggle('selected', check.checked);
+            if (check.checked) {
+                state.selectedDepartamentoIds.add(id);
+            } else {
+                state.selectedDepartamentoIds.delete(id);
+            }
+            updateDepartamentosUI();
+        });
+    });
+}
+
+function updateDepartamentosUI() {
+    document.getElementById('departamentosCount').textContent =
+        state.selectedDepartamentoIds.size;
+
+    // "Outros" é reconhecido pelo nome só no cliente, para revelar o campo.
+    // A obrigatoriedade de verdade é do servidor, que usa a coluna
+    // exige_texto — se o nome mudar, o pior caso aqui é o campo não
+    // aparecer e o backend recusar com a mensagem correta.
+    const outros = state.departamentos.find(d => d.nome === 'Outros');
+    const marcado = outros && state.selectedDepartamentoIds.has(outros.id);
+    document.getElementById('departamentoOutrosWrap').classList.toggle('d-none', !marcado);
+}
+
+// Sócio digita sem acento no teclado do celular na maioria das vezes
+// ("natacao", "judo", "hidroginastica"), então a busca precisa comparar sem
+// acento dos dois lados — senão metade da lista some da busca mesmo
+// existindo.
+const semAcento = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+document.getElementById('departamentosBusca').addEventListener('input', (e) => {
+    const q = semAcento(e.target.value);
+    document.querySelectorAll('.departamento-item').forEach(item => {
+        const nome = semAcento(item.querySelector('label').textContent);
+        item.classList.toggle('d-none', !nome.includes(q));
+    });
+});
+
+document.getElementById('btnDepartamentos').addEventListener('click', () => {
+    if (state.selectedDepartamentoIds.size === 0) {
+        showToast('Marque ao menos uma modalidade');
+        return;
+    }
+    const wrap = document.getElementById('departamentoOutrosWrap');
+    const texto = document.getElementById('departamentoOutros').value.trim();
+    if (!wrap.classList.contains('d-none') && !texto) {
+        showToast('Descreva qual modalidade em Outros');
+        return;
+    }
+    goToStep(5);
+});
+
 document.getElementById('lgpdCheck').addEventListener('change', (e) => {
     document.getElementById('btnSubmit').disabled = !e.target.checked;
 });
@@ -394,13 +540,17 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
                 candidatos_ids: Array.from(state.selectedIds),
                 candidato_preferido_id: parseInt(document.getElementById('preferido').value),
                 aceite_lgpd: lgpdChecked,
+                departamentos_ids: [...state.selectedDepartamentoIds],
+                departamento_outros: document.getElementById('departamentoOutros').value.trim(),
             }),
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail);
 
-        goToStep(5);
+        // steps agora tem 6 posições (…, step5, stepThanks); stepThanks é a
+        // sexta, não mais a quinta.
+        goToStep(6);
     } catch (err) {
         showToast(err.message);
         btn.disabled = false;

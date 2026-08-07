@@ -57,6 +57,16 @@ class SondagemUser(HttpUser):
         if res.status_code == 200:
             self.candidatos = res.json()
 
+        # fluxo_completo (abaixo) para no /register: um teste de carga não
+        # tem como ler o código OTP (ele só existe no log do servidor, ver
+        # comentário mais abaixo), então nunca chega a bater em /submit. Os
+        # ids ficam guardados aqui do mesmo jeito que self.candidatos, para
+        # quando esse trecho for estendido.
+        self.departamento_ids = []
+        res = self.client.get("/api/survey/departamentos", name="GET /departamentos")
+        if res.status_code == 200:
+            self.departamento_ids = [d["id"] for d in res.json()]
+
     @task(3)
     def fluxo_completo(self):
         cpf = _gerar_cpf_valido()
@@ -74,10 +84,15 @@ class SondagemUser(HttpUser):
                 "nome": f"Usuário Carga {random.randint(1, 999999)}",
                 "cpf": cpf,
                 "telefone": telefone,
+                "numero_socio": f"{random.randint(0, 9999):04d}",
+                "titular": True,
                 "recaptcha_token": "",
             },
             name="POST /register",
         )
+        # Nota: com 4 dígitos há só 10.000 números possíveis e a constraint é
+        # única, então em runs longos vão aparecer 400 de número repetido.
+        # Isso é comportamento correto do sistema, não falha do teste.
         if res.status_code != 200:
             return
 
