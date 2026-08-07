@@ -43,10 +43,11 @@ uvicorn app.main:app --reload
 
 ## Fluxo da Aplicação
 
-1. **Cadastro** — Nome, CPF (validação em tempo real), celular
+1. **Cadastro** — Nome, CPF (validação em tempo real), número de sócio, celular e declaração de titular do grupo
 2. **OTP** — Código de 6 dígitos via SMS (Twilio/Zenvia/Z-API)
-3. **Candidatos** — Seleção múltipla + preferencial
-4. **Modalidades** - Departamentos/modalidades que o sócio frequenta
+3. **Candidatos** — Seleção múltipla (até 20)
+4. **Ponto focal** — Escolha única entre os candidatos marcados na etapa 3
+5. **Modalidades** — Departamentos/modalidades que o sócio frequenta
 6. **LGPD** — Consentimento obrigatório
 
 ## Segurança
