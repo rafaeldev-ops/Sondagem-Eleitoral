@@ -2,7 +2,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Associado, AuditLog, Candidato, Preferencia, Resposta, WebhookLog
+from app.models import (
+    Associado,
+    AuditLog,
+    Candidato,
+    Departamento,
+    Preferencia,
+    Resposta,
+    WebhookLog,
+)
 from app.utils.cpf import normalize_cpf
 from app.utils.socio import normalize_numero_socio
 
@@ -95,6 +103,19 @@ class CandidatoRepository:
     async def count_all(self) -> int:
         result = await self.db.execute(select(func.count()).select_from(Candidato))
         return result.scalar_one()
+
+
+class DepartamentoRepository:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def list_active(self) -> list[Departamento]:
+        result = await self.db.execute(
+            select(Departamento)
+            .where(Departamento.ativo.is_(True))
+            .order_by(Departamento.ordem)
+        )
+        return list(result.scalars().all())
 
 
 class RespostaRepository:

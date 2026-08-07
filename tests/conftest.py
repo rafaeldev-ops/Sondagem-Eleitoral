@@ -302,6 +302,38 @@ def numero_socio():
     return generate
 
 
+@pytest_asyncio.fixture
+async def departamentos(db_session):
+    """
+    Cria departamentos para o teste. O seed real vive na migration 006, que
+    a suíte não roda (o schema vem de create_all) — então cada teste que
+    precisa de modalidades cria as suas.
+
+    Devolve os objetos já com id, na ordem em que foram criados; quando
+    com_outros=True o último é a opção que exige texto complementar.
+    """
+
+    async def create(quantos: int = 3, com_outros: bool = True):
+        from app.models import Departamento
+
+        criados = [
+            Departamento(nome=f"Modalidade {i}", ordem=i, ativo=True)
+            for i in range(1, quantos + 1)
+        ]
+        if com_outros:
+            criados.append(
+                Departamento(nome="Outros", ordem=999, exige_texto=True, ativo=True)
+            )
+
+        db_session.add_all(criados)
+        await db_session.commit()
+        for d in criados:
+            await db_session.refresh(d)
+        return criados
+
+    return create
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def admin_token(_live_server):
     """

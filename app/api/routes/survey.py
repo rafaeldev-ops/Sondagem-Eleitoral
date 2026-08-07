@@ -7,7 +7,7 @@ from app.api.deps import get_client_ip, get_db, get_otp_service, get_user_agent
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.integrations.recaptcha import RecaptchaService
-from app.repositories import AssociadoRepository, CandidatoRepository
+from app.repositories import AssociadoRepository, CandidatoRepository, DepartamentoRepository
 from app.schemas import (
     CadastroRequest,
     CPFValidateRequest,
@@ -136,6 +136,13 @@ async def list_candidatos(db: AsyncSession = Depends(get_db)) -> list[dict]:
         }
         for c in candidatos
     ]
+
+
+@router.get("/departamentos")
+async def list_departamentos(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    repo = DepartamentoRepository(db)
+    departamentos = await repo.list_active()
+    return [{"id": d.id, "nome": d.nome} for d in departamentos]
 
 
 @router.post("/submit", response_model=MessageResponse)
