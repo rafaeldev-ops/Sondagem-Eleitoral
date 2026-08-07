@@ -30,14 +30,25 @@ limiter.default_limits = [settings.rate_limit_default]
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+# Criados AQUI, no import, e não no lifespan: o app.mount() de /uploads lá
+# embaixo também roda no import, e StaticFiles levanta
+# "Directory '...' does not exist" já no construtor. Como o lifespan só roda
+# depois, criar os diretórios lá dentro chegava tarde demais.
+#
+# Não é hipótese: o git versiona só `uploads/.gitkeep`, e UPLOAD_DIR aponta
+# por padrão para `uploads/candidatos` — um subdiretório. Num clone novo a
+# aplicação não subia, e a suíte inteira virava erro de conexão recusada
+# (o servidor de teste morria antes de abrir a porta). Quem recebesse o
+# repositório batia nisso no primeiro `docker compose up`.
+#
+# parents=True cobre UPLOAD_DIR apontando para caminho aninhado;
+# exist_ok=True torna a chamada idempotente a cada import.
+Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "static" / "uploads" / "candidatos").mkdir(parents=True, exist_ok=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    upload_dir = Path(settings.upload_dir)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    static_uploads = BASE_DIR / "static" / "uploads" / "candidatos"
-    static_uploads.mkdir(parents=True, exist_ok=True)
-
     logger.info("Aplicação iniciada: %s", settings.app_name)
     yield
 
