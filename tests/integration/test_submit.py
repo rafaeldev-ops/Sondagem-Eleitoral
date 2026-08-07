@@ -10,6 +10,7 @@ async def _register_verify(
             "cpf": valid_cpf(),
             "telefone": telefone,
             "numero_socio": numero_socio(),
+            "titular": True,
             "recaptcha_token": "",
         },
     )
@@ -128,6 +129,7 @@ class TestSubmit:
                 "cpf": cpf,
                 "telefone": "11988888004",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )

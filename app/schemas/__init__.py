@@ -25,6 +25,12 @@ class CadastroRequest(BaseModel):
     cpf: str
     numero_socio: str
     telefone: str
+    # Sem default, ao contrário de recaptcha_token: o formulário sempre manda
+    # os dois estados do checkbox (marcado/desmarcado), então payload sem o
+    # campo é bug de frontend e deve estourar 422 na hora. Um default False
+    # aqui gravaria "não é titular" para quem nunca foi perguntado — o mesmo
+    # erro que a migration 007 evita no banco.
+    titular: bool
     recaptcha_token: str = Field(default="")
 
     @field_validator("nome")
@@ -157,6 +163,8 @@ class AssociadoResponse(BaseModel):
     cpf: str
     numero_socio: str
     telefone: str
+    # None = respondeu antes da pergunta existir (ver migration 007).
+    titular: bool | None = None
     data_resposta: datetime
     candidatos: list[str]
     preferido: str
@@ -188,6 +196,12 @@ class WebhookPayload(BaseModel):
     numero_socio: str = ""
     cpf: str
     telefone: str
+    # Mesmo motivo de numero_socio acima: default obrigatório porque este
+    # schema também é o sentido de VOLTA (webhook_logs -> retry). False aqui
+    # é só o valor de re-hidratação de payload antigo, que já foi montado e
+    # gravado sem o campo; não é resposta de ninguém. Toda saída nova passa
+    # pelo submit_vote, que sempre informa titular explicitamente.
+    titular: bool = False
     candidatos: list[str]
     preferido: str
     departamentos: list[str] = Field(default_factory=list)

@@ -70,6 +70,7 @@ async def register(
         cpf=body.cpf,
         telefone=body.telefone,
         numero_socio=body.numero_socio,
+        titular=body.titular,
         ip=ip,
         user_agent=get_user_agent(request),
     )

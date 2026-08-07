@@ -73,6 +73,7 @@ async def _preparar_voto_export(
             "cpf": valid_cpf(),
             "telefone": telefone,
             "numero_socio": numero_socio(),
+            "titular": True,
             "recaptcha_token": "",
         },
     )
@@ -427,6 +428,7 @@ class TestPayloadDoWebhook:
         assert payload.numero_socio == ""
         assert payload.departamentos == []
         assert payload.departamento_outros == ""
+        assert payload.titular is False
 
         formato_pos_numero_socio = {**formato_original, "numero_socio": "1234"}
         payload = WebhookService.deserialize_payload(
@@ -435,3 +437,20 @@ class TestPayloadDoWebhook:
         assert payload.numero_socio == "1234"
         assert payload.departamentos == []
         assert payload.departamento_outros == ""
+        assert payload.titular is False
+
+        # Terceira forma histórica: já tem modalidades, ainda não tem titular.
+        # É a forma que está sendo gravada em produção neste exato momento,
+        # ou seja, a que o worker vai reencontrar depois do deploy desta
+        # feature. Foi por não escrever este caso na branch anterior que o
+        # mesmo bug apareceu duas vezes.
+        formato_pos_departamentos = {
+            **formato_pos_numero_socio,
+            "departamentos": ["Natação"],
+            "departamento_outros": "",
+        }
+        payload = WebhookService.deserialize_payload(
+            json.dumps(formato_pos_departamentos)
+        )
+        assert payload.departamentos == ["Natação"]
+        assert payload.titular is False

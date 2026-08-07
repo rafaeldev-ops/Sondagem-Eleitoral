@@ -40,17 +40,47 @@ function showToast(message) {
     bootstrap.Toast.getOrCreateInstance(toast).show();
 }
 
+// Uma bolinha por etapa. Concluída vira check, atual fica em destaque
+// esperando ser confirmada, futura fica apagada.
+//
+// Só troca de CLASSE, nunca element.style: a CSP do projeto não tem
+// 'unsafe-inline' em style-src (a barra de progresso anterior escapava
+// disso por ser CSSOM, mas classe é mais simples e não depende dessa
+// distinção). Ver app/middlewares/security_headers.py.
+function renderStepDots(n) {
+    document.querySelectorAll('#stepDots .step-dot').forEach((dot) => {
+        const etapa = Number(dot.dataset.step);
+        // n > stepLabels.length é a tela de agradecimento: aí as cinco
+        // etapas estão concluídas e nenhuma é a atual.
+        const concluida = etapa < n;
+        const atual = etapa === n;
+
+        dot.classList.toggle('is-done', concluida);
+        dot.classList.toggle('is-current', atual);
+
+        if (atual) {
+            dot.setAttribute('aria-current', 'step');
+        } else {
+            dot.removeAttribute('aria-current');
+        }
+    });
+}
+
 function goToStep(n) {
     state.step = n;
     steps.forEach((id, i) => {
         document.getElementById(id).classList.toggle('d-none', i !== n - 1);
     });
+
+    renderStepDots(n);
+
     // Derivado de stepLabels.length, não cravado: o 4 e o 25 anteriores eram
     // a mesma informação escrita duas vezes, e ambos ficavam errados assim
     // que uma etapa era acrescentada.
     if (n <= stepLabels.length) {
-        document.getElementById('stepProgress').style.width = `${(n / stepLabels.length) * 100}%`;
         document.getElementById('stepLabel').textContent = stepLabels[n - 1];
+    } else {
+        document.getElementById('stepLabel').textContent = 'Participação concluída';
     }
 }
 
@@ -153,6 +183,18 @@ document.getElementById('numeroSocio').addEventListener('input', (e) => {
     e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
 });
 
+// Destaque do cartão "sou titular do grupo". O CSS também cobre isso via
+// :has(input:checked), mas WebView de Android antigo não implementa :has() —
+// a classe aqui é quem garante o retorno visual em todo aparelho.
+const titularCheck = document.getElementById('titular');
+titularCheck.addEventListener('change', () => {
+    titularCheck.closest('.choice-card').classList.toggle('selected', titularCheck.checked);
+});
+
+// Estado inicial das bolinhas: etapa 1 é a atual. goToStep() cuida daqui em
+// diante, mas ele só roda quando o usuário avança.
+renderStepDots(state.step);
+
 // Step 1: Registration
 document.getElementById('cadastroForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -179,6 +221,10 @@ document.getElementById('cadastroForm').addEventListener('submit', async (e) => 
                 nome: document.getElementById('nome').value.trim(),
                 cpf: normalizeCPF(cpfInput.value),
                 numero_socio: numeroSocio,
+                // Sempre o estado real do checkbox: desmarcado é a resposta
+                // "não sou titular", não ausência de resposta. O backend
+                // exige o campo (CadastroRequest.titular não tem default).
+                titular: titularCheck.checked,
                 telefone: normalizePhone(document.getElementById('telefone').value),
                 recaptcha_token: recaptchaToken,
             }),

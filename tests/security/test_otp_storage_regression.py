@@ -22,6 +22,7 @@ class TestOtpNeverStoredInPlaintext:
                 "cpf": valid_cpf(),
                 "telefone": telefone,
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )

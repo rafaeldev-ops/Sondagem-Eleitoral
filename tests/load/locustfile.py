@@ -85,6 +85,7 @@ class SondagemUser(HttpUser):
                 "cpf": cpf,
                 "telefone": telefone,
                 "numero_socio": f"{random.randint(0, 9999):04d}",
+                "titular": True,
                 "recaptcha_token": "",
             },
             name="POST /register",

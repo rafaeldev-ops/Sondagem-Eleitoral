@@ -23,6 +23,15 @@ class Associado(Base):
     # Texto, não inteiro: zeros à esquerda são significativos (0042 != 42).
     numero_socio: Mapped[str] = mapped_column(String(4), nullable=False)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Sócio titular do grupo familiar (vs. dependente). Declarado pelo próprio
+    # associado na etapa 1 — não é validado contra cadastro do clube.
+    #
+    # Nullable de propósito: NULL significa "não perguntado", e é o que fica
+    # nas respostas coletadas antes desta pergunta existir. Um default False
+    # na migration transformaria todo mundo que já votou em "não titular" —
+    # uma resposta que ninguém deu. A partir daqui toda linha nova grava True
+    # ou False de verdade, porque o checkbox é obrigatório no cadastro.
+    titular: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     aceite_lgpd: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

@@ -18,15 +18,17 @@ from app.core.config import get_settings
 #   delegation em vez de onclick= no HTML gerado.
 #
 # - Em style-src, saiu quando os style="" dos templates viraram classes
-#   (.step-card, .login-card, .step-progress). Sem ele, um atacante que
-#   consiga injetar HTML não consegue mais usar CSS para atacar: nem
-#   sobrepor a página inteira com um formulário falso, nem exfiltrar
-#   conteúdo por seletor de atributo + background-image.
+#   (.step-card, .login-card). Sem ele, um atacante que consiga injetar
+#   HTML não consegue mais usar CSS para atacar: nem sobrepor a página
+#   inteira com um formulário falso, nem exfiltrar conteúdo por seletor de
+#   atributo + background-image.
 #
-# O app.js continua ajustando a barra de progresso por
-# element.style.width. Isso é CSSOM e a CSP não bloqueia — 'unsafe-inline'
-# governa o atributo style= vindo do HTML, não atribuição de propriedade
-# por script.
+# O fluxo público não usa element.style em lugar nenhum: o progresso das
+# etapas são as bolinhas do cabeçalho, e o app.js muda o estado delas por
+# classList (is-done / is-current). A barra de progresso anterior escapava
+# da CSP por outro motivo — element.style.width é CSSOM, e 'unsafe-inline'
+# governa só o atributo style= vindo do HTML. Trocar por classe removeu a
+# dependência dessa distinção.
 _CSP = (
     "default-src 'self'; "
     "script-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; "

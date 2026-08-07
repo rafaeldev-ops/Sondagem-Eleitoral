@@ -7,6 +7,7 @@ class TestOtpFlow:
                 "cpf": valid_cpf(),
                 "telefone": "11988887001",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -26,6 +27,7 @@ class TestOtpFlow:
                 "cpf": valid_cpf(),
                 "telefone": "11988887002",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -54,6 +56,7 @@ class TestOtpFlow:
                 "cpf": valid_cpf(),
                 "telefone": "11988887003",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )

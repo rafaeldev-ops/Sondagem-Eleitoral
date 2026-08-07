@@ -20,6 +20,7 @@ class TestNumeroSocioNoCadastro:
                 "cpf": valid_cpf(),
                 "telefone": "11977770001",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -34,6 +35,7 @@ class TestNumeroSocioNoCadastro:
                 "cpf": valid_cpf(),
                 "telefone": "11977770002",
                 "numero_socio": "123",
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -46,6 +48,7 @@ class TestNumeroSocioNoCadastro:
                 "nome": "Socio Sem Numero",
                 "cpf": valid_cpf(),
                 "telefone": "11977770003",
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -81,6 +84,7 @@ class TestUnicidadeDoNumeroSocio:
                 "cpf": valid_cpf(),
                 "telefone": "11966660002",
                 "numero_socio": numero,
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -122,6 +126,7 @@ class TestUnicidadeDoNumeroSocio:
                 "cpf": cpf,
                 "telefone": "11966660004",
                 "numero_socio": numero_socio(),
+                "titular": True,
                 "recaptcha_token": "",
             },
         )
@@ -153,6 +158,7 @@ class TestNumeroSocioPersistido:
                 "cpf": valid_cpf(),
                 "telefone": telefone,
                 "numero_socio": "0042",
+                "titular": True,
                 "recaptcha_token": "",
             },
         )

@@ -87,6 +87,7 @@ class SurveyService:
         cpf: str,
         telefone: str,
         numero_socio: str,
+        titular: bool,
         ip: str | None,
         user_agent: str | None,
     ) -> tuple[str | None, str | None]:
@@ -106,6 +107,7 @@ class SurveyService:
                 "cpf": cpf,
                 "telefone": telefone,
                 "numero_socio": numero_socio,
+                "titular": titular,
                 "verified": False,
                 "ip": ip,
                 "user_agent": user_agent,
@@ -182,6 +184,11 @@ class SurveyService:
 
         cpf = session["cpf"]
         numero_socio = session["numero_socio"]
+        # .get, e não session["titular"]: sessões abertas antes do deploy
+        # desta feature não têm a chave, e um KeyError aqui derrubaria o
+        # submit de quem estava no meio do fluxo. None é a resposta honesta
+        # nesse caso — a pessoa não chegou a ver o checkbox.
+        titular = session.get("titular")
 
         available, msg = await self.check_cpf_available(cpf)
         if not available:
@@ -230,6 +237,7 @@ class SurveyService:
             cpf=cpf,
             numero_socio=numero_socio,
             telefone=session["telefone"],
+            titular=titular,
             departamento_outros=texto_outros or None,
             ip=ip or session.get("ip"),
             user_agent=user_agent or session.get("user_agent"),
@@ -286,6 +294,12 @@ class SurveyService:
             numero_socio=associado.numero_socio,
             cpf=format_cpf(associado.cpf),
             telefone=associado.telefone,
+            # bool() achata o None da sessão pré-deploy para False: o payload
+            # do n8n não usa nulo em campo nenhum (mesma razão do
+            # departamento_outros="" em vez de None). A distinção entre "não
+            # é titular" e "não foi perguntado" fica preservada no banco e na
+            # exportação, que são a fonte de verdade da análise.
+            titular=bool(associado.titular),
             candidatos=candidatos_nomes,
             preferido=preferido_nome,
             departamentos=departamentos_nomes,
@@ -350,6 +364,21 @@ class SurveyService:
         return retried
 
 
+def _rotulo_titular(valor: bool | None) -> str:
+    """
+    "Sim"/"Não" para quem respondeu; vazio para quem votou antes da pergunta
+    existir (titular IS NULL — ver migration 007).
+
+    Três estados e não dois: quem for contar titulares na planilha precisa
+    conseguir separar "declarou que não é" de "nunca foi perguntado". Um
+    "Não" nas duas situações inflaria a contagem de dependentes com todo o
+    histórico anterior à feature.
+    """
+    if valor is None:
+        return ""
+    return "Sim" if valor else "Não"
+
+
 class ExportService:
     def __init__(self, db: AsyncSession) -> None:
         self.associado_repo = AssociadoRepository(db)
@@ -365,6 +394,7 @@ class ExportService:
                 "Nome",
                 "CPF",
                 "Telefone",
+                "Titular",
                 "Candidatos",
                 "Preferido",
                 "Modalidades",
@@ -388,6 +418,7 @@ class ExportService:
                     a.nome,
                     format_cpf(a.cpf),
                     a.telefone,
+                    _rotulo_titular(a.titular),
                     candidatos,
                     preferido,
                     modalidades,
@@ -411,6 +442,7 @@ class ExportService:
                 "Nome",
                 "CPF",
                 "Telefone",
+                "Titular",
                 "Candidatos",
                 "Preferido",
                 "Modalidades",
@@ -434,6 +466,7 @@ class ExportService:
                     a.nome,
                     format_cpf(a.cpf),
                     a.telefone,
+                    _rotulo_titular(a.titular),
                     candidatos,
                     preferido,
                     modalidades,

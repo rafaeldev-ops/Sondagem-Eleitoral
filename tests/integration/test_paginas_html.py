@@ -58,6 +58,25 @@ class TestPaginaPublica:
         assert 'id="step5"' in html
         assert "Etapa 1 de 5" in html
 
+    async def test_cabecalho_tem_sondagem_2026_acima_do_wordmark(self, client):
+        """A ordem importa: "Sondagem 2026" fica ACIMA do nome do clube. Uma
+        troca de posição não quebra nada funcionalmente, então só um teste de
+        ordem pega a regressão."""
+        html = (await client.get("/")).text
+        assert "Sondagem" in html
+        assert "2026" in html
+        assert html.index("brand-title") < html.index("brand-wordmark")
+
+    async def test_progresso_tem_cinco_bolinhas(self, client):
+        """Uma bolinha por etapa. Se o template ganhar uma etapa e ninguém
+        acrescentar a bolinha, o cabeçalho passa a contar errado — e isso é
+        silencioso, porque o app.js só mexe nas que existem."""
+        html = (await client.get("/")).text
+        assert 'id="stepDots"' in html
+        assert html.count('class="step-dot"') == 5
+        for etapa in range(1, 6):
+            assert f'data-step="{etapa}"' in html
+
 
 class TestPaginaAdmin:
     async def test_admin_renderiza(self, client):
