@@ -17,3 +17,6 @@ Thumbs.db
 # Workspace do subagent-driven-development (ledger, briefs, relatorios,
 # pacotes de review) — scratch local, o registro definitivo e o git log.
 .superpowers/
+
+# Worktrees isolados de desenvolvimento (superpowers)
+.worktrees/
