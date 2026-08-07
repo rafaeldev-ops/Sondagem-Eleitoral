@@ -26,6 +26,10 @@ class Associado(Base):
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     aceite_lgpd: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Preenchido só por quem marcou a modalidade que exige texto ("Outros").
+    # Um texto por pessoa, não por modalidade — daí ficar aqui e não em
+    # AssociadoDepartamento.
+    departamento_outros: Mapped[str | None] = mapped_column(String(100), nullable=True)
     data_resposta: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -34,6 +38,9 @@ class Associado(Base):
 
     respostas: Mapped[list["Resposta"]] = relationship(back_populates="associado")
     preferencia: Mapped["Preferencia | None"] = relationship(back_populates="associado")
+    departamentos: Mapped[list["AssociadoDepartamento"]] = relationship(
+        back_populates="associado"
+    )
 
 
 class Candidato(Base):
@@ -120,3 +127,58 @@ class AuditLog(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class Departamento(Base):
+    __tablename__ = "departamentos"
+    __table_args__ = (UniqueConstraint("nome", name="uq_departamentos_nome"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Ordem de exibição explícita, e não ORDER BY nome: a collation do banco
+    # (en_US.utf8) ordena "Volei Masculino" longe dos outros dois "Vôlei", e o
+    # resultado pode variar entre desenvolvimento e produção. A ordem é um
+    # dado, não um efeito colateral do ambiente.
+    ordem: Mapped[int] = mapped_column(Integer, nullable=False)
+    # True só para "Outros". Marca a opção que exige texto complementar; o
+    # serviço consulta esta coluna em vez de comparar nome == "Outros", que
+    # quebraria silenciosamente numa renomeação ou correção de acento.
+    exige_texto: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    associados: Mapped[list["AssociadoDepartamento"]] = relationship(
+        back_populates="departamento"
+    )
+
+
+class AssociadoDepartamento(Base):
+    __tablename__ = "associado_departamentos"
+    __table_args__ = (
+        UniqueConstraint(
+            "associado_id", "departamento_id", name="uq_associado_departamento"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # index=True nas duas: Postgres não indexa FK sozinho e a exportação faz
+    # join pelas duas. No modelo, não só na migration, para que create_all
+    # (testes) e Alembic (produção) concordem.
+    associado_id: Mapped[int] = mapped_column(
+        ForeignKey("associados.id"), nullable=False, index=True
+    )
+    departamento_id: Mapped[int] = mapped_column(
+        ForeignKey("departamentos.id"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    associado: Mapped["Associado"] = relationship(back_populates="departamentos")
+    departamento: Mapped["Departamento"] = relationship(back_populates="associados")
