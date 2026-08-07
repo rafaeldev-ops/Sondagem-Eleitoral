@@ -11,13 +11,18 @@
     {% endif %}
 </head>
 <body data-recaptcha-site-key="{{ recaptcha_site_key }}">
-    <div class="container-fluid min-vh-100 d-flex flex-column p-0">
-        <header class="brand-header sticky-top">
-            <h1 class="brand-lockup">
-                <span class="brand-title">Sondagem <span class="brand-year">2026</span></span>
-                <span class="brand-wordmark">{{ app_name }}</span>
-            </h1>
+    <div class="page">
+        <header class="brand-header">
+            <p class="brand-title">
+                <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"/>
+                </svg>
+                Sondagem 2026
+            </p>
+            <h1 class="brand-wordmark">{{ app_name }}</h1>
+        </header>
 
+        <div class="flow-shell">
             <!-- Uma bolinha por etapa. O estado de cada uma é classe (is-done /
                  is-current), nunca atributo de estilo embutido: a CSP não tem
                  'unsafe-inline' em style-src, e test_templates_nao_tem_atributo_style
@@ -41,143 +46,170 @@
                     <span class="step-dot-face"><span class="step-dot-num">5</span></span>
                 </li>
             </ol>
-            <p class="step-caption" id="stepLabel">Etapa 1 de 5 — Cadastro</p>
-        </header>
+            <!-- Visualmente as bolinhas já dizem em que etapa a pessoa está; este
+                 texto existe para leitor de tela, que não enxerga o preenchimento
+                 dos círculos. -->
+            <p class="visually-hidden" id="stepLabel" aria-live="polite">Etapa 1 de 5 — Cadastro</p>
 
-        <main class="flex-grow-1 py-4 px-3">
-            <!-- Etapa 1: Cadastro -->
-            <section id="step1" class="step-panel">
-                <div class="card shadow-sm border-0 mx-auto step-card">
-                    <div class="card-body p-4">
-                        <h2 class="section-title">Validação de Acesso</h2>
-                        <p class="subtitle-muted mb-3">Identificação do Associado</p>
-                        <form id="cadastroForm" novalidate>
-                            <div class="mb-3">
-                                <label for="nome" class="form-label">Nome Completo *</label>
-                                <input type="text" class="form-control form-control-lg" id="nome" required maxlength="255" autocomplete="name" placeholder="Digite seu nome">
-                            </div>
-                            <div class="mb-3">
-                                <label for="cpf" class="form-label">CPF * (Apenas números)</label>
-                                <input type="text" class="form-control form-control-lg" id="cpf" inputmode="numeric" required maxlength="14" autocomplete="off" placeholder="000.000.000-00">
-                                <div class="invalid-feedback" id="cpfFeedback"></div>
-                                <div class="valid-feedback">CPF válido</div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="numeroSocio" class="form-label">Número de Sócio * (4 dígitos)</label>
-                                <input type="text" class="form-control form-control-lg" id="numeroSocio" inputmode="numeric" required maxlength="4" minlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="0000">
-                                <div class="invalid-feedback" id="numeroSocioFeedback">Informe os 4 dígitos do seu número de sócio</div>
-                            </div>
-                            <!-- Declaração do próprio associado; não é conferida
-                                 contra o cadastro do clube. Desmarcado é uma
-                                 resposta ("não sou titular"), não uma omissão —
-                                 daí a dica abaixo dizer isso em voz alta. -->
-                            <div class="mb-3">
-                                <div class="choice-card">
-                                    <input class="form-check-input" type="checkbox" id="titular">
-                                    <label class="form-check-label" for="titular">
-                                        <span class="choice-title">Sou titular do grupo</span>
-                                        <span class="choice-hint">Deixe desmarcado se você é dependente no grupo familiar.</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="telefone" class="form-label">Celular (WhatsApp) *</label>
-                                <input type="tel" class="form-control form-control-lg" id="telefone" inputmode="tel" required maxlength="16" autocomplete="tel" placeholder="(11) 90000-0000">
-                            </div>
-                            <div class="privacy-notice">
-                                <strong>AVISO DE PRIVACIDADE:</strong> Seus dados serão utilizados exclusivamente para validação de segurança e prevenção contra duplicidade.
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" id="btnCadastro">RECEBER CÓDIGO DE SEGURANÇA</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
+            <main class="flow-body">
+                <!-- Etapa 1: Cadastro -->
+                <section id="step1" class="step-panel">
+                    <h2 class="section-title">Validação de Acesso</h2>
+                    <p class="section-subtitle">Identificação do Associado</p>
 
-            <!-- Etapa 2: OTP -->
-            <section id="step2" class="step-panel d-none">
-                <div class="card shadow-sm border-0 mx-auto step-card">
-                    <div class="card-body p-4 text-center">
-                        <h2 class="section-title">Confirmação de Token</h2>
-                        <p class="subtitle-muted mb-4">Enviamos um código para o número <strong id="phoneDisplay"></strong></p>
-                        <form id="otpForm">
-                            <div class="otp-inputs d-flex justify-content-center gap-2 mb-3">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]">
-                            </div>
-                            <div class="invalid-feedback d-block mb-3" id="otpFeedback"></div>
-                            <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">VALIDAR E CONTINUAR</button>
-                            <button type="button" class="btn btn-link btn-sm" id="btnResend" disabled>Reenviar código (<span id="resendTimer">60</span>s)</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
+                    <form id="cadastroForm" novalidate>
+                        <div class="field">
+                            <label for="nome" class="form-label">Nome Completo *</label>
+                            <input type="text" class="form-control form-control-lg" id="nome" required maxlength="255" autocomplete="name" placeholder="Digite seu nome">
+                        </div>
+                        <div class="field">
+                            <label for="cpf" class="form-label">CPF * (Apenas números)</label>
+                            <input type="text" class="form-control form-control-lg" id="cpf" inputmode="numeric" required maxlength="14" autocomplete="off" placeholder="000.000.000-00">
+                            <div class="invalid-feedback" id="cpfFeedback"></div>
+                            <div class="valid-feedback">CPF válido</div>
+                        </div>
+                        <div class="field">
+                            <label for="numeroSocio" class="form-label">Número de Sócio * (4 dígitos)</label>
+                            <input type="text" class="form-control form-control-lg" id="numeroSocio" inputmode="numeric" required maxlength="4" minlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="0000">
+                            <div class="invalid-feedback" id="numeroSocioFeedback">Informe os 4 dígitos do seu número de sócio</div>
+                        </div>
 
-            <!-- Etapa 3: Candidatos -->
-            <section id="step3" class="step-panel d-none">
-                <div class="mx-auto step-card">
+                        <!-- Declaração do próprio associado; não é conferida contra
+                             o cadastro do clube. Desmarcado é uma resposta ("não sou
+                             titular"), não uma omissão — daí a dica dizer isso em
+                             voz alta. -->
+                        <div class="field">
+                            <div class="choice-card">
+                                <input class="form-check-input" type="checkbox" id="titular">
+                                <label class="form-check-label" for="titular">
+                                    <span class="choice-title">Sou titular do grupo</span>
+                                    <span class="choice-hint">Deixe desmarcado se você é dependente no grupo familiar.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="telefone" class="form-label">Celular (WhatsApp) *</label>
+                            <input type="tel" class="form-control form-control-lg" id="telefone" inputmode="tel" required maxlength="16" autocomplete="tel" placeholder="(11) 90000-0000">
+                        </div>
+
+                        <div class="privacy-notice">
+                            <svg class="privacy-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 10V7a5 5 0 0 1 10 0v3"/>
+                                <rect x="5" y="10" width="14" height="10" rx="2"/>
+                            </svg>
+                            <p><strong>AVISO DE PRIVACIDADE:</strong> Seus dados serão utilizados exclusivamente para validação de segurança e prevenção contra duplicidade.</p>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="btnCadastro">RECEBER CÓDIGO DE SEGURANÇA</button>
+                    </form>
+                </section>
+
+                <!-- Etapa 2: OTP -->
+                <section id="step2" class="step-panel d-none">
+                    <h2 class="section-title">Confirmação de Token</h2>
+                    <p class="section-subtitle">Enviamos um código para o número <strong id="phoneDisplay"></strong></p>
+
+                    <form id="otpForm">
+                        <div class="otp-inputs">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 1">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 2">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 3">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 4">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 5">
+                            <input type="text" class="form-control otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Dígito 6">
+                        </div>
+                        <div class="invalid-feedback d-block text-center mb-3" id="otpFeedback"></div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">VALIDAR E CONTINUAR</button>
+                        <button type="button" class="btn btn-link btn-sm w-100 mt-2" id="btnResend" disabled>Reenviar código (<span id="resendTimer">60</span>s)</button>
+                    </form>
+                </section>
+
+                <!-- Etapa 3: Candidatos -->
+                <section id="step3" class="step-panel d-none">
                     <h2 class="section-title">Seleção de Pré-Candidatos</h2>
-                    <p class="subtitle-muted mb-3">Escolha em quem você tem intenção de votar (máximo <span id="maxCandidatos">20</span>):</p>
+                    <p class="section-subtitle">Escolha em quem você tem intenção de votar:</p>
+
+                    <div class="counter-bar">
+                        <span class="counter-label">
+                            <svg class="counter-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="9" cy="8" r="3.2"/>
+                                <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>
+                                <path d="M16 6.2a3 3 0 0 1 0 5.6M17.5 14.4c2 .7 3.2 2.4 3.2 4.6"/>
+                            </svg>
+                            Selecionados
+                        </span>
+                        <span class="counter-value"><strong id="candidatosCount">0</strong>/<span id="maxCandidatos">20</span></span>
+                    </div>
+
                     <div id="candidatosGrid"></div>
 
-                    <div class="field mt-3">
-                        <label for="preferido" class="form-label">Qual pré-candidato você deseja como seu ponto focal no grupo?</label>
+                    <div class="field focal-field">
+                        <label for="preferido" class="form-label">
+                            <svg class="focal-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m12 3.5 2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/>
+                            </svg>
+                            Ponto focal no grupo
+                        </label>
+                        <p class="field-hint">Qual pré-candidato você deseja como seu ponto focal?</p>
                         <select class="form-select form-select-lg" id="preferido" required>
                             <option value="">Selecione um candidato...</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary btn-lg w-100 mt-3" id="btnCandidatos">CONTINUAR</button>
-                </div>
-            </section>
 
-            <!-- Etapa 4: Modalidades -->
-            <section id="step4" class="step-panel d-none">
-                <div class="mx-auto step-card">
+                    <button type="button" class="btn btn-primary btn-lg w-100" id="btnCandidatos">CONTINUAR</button>
+                </section>
+
+                <!-- Etapa 4: Modalidades -->
+                <section id="step4" class="step-panel d-none">
                     <h2 class="section-title">Modalidades e Departamentos</h2>
-                    <p class="subtitle-muted mb-3">Quais modalidade/departamentos do clube você participa? Marque todas que se aplicam.</p>
+                    <p class="section-subtitle">Quais modalidades ou departamentos do clube você participa? Marque todas que se aplicam.</p>
 
                     <input type="search" class="form-control mb-2" id="departamentosBusca" placeholder="Buscar modalidade..." autocomplete="off" aria-label="Buscar modalidade">
 
                     <div id="departamentosLista" class="departamentos-lista"></div>
 
-                    <div class="mb-3 mt-2 d-none" id="departamentoOutrosWrap">
+                    <div class="field mt-3 d-none" id="departamentoOutrosWrap">
                         <label for="departamentoOutros" class="form-label">Qual? Descreva a modalidade ou departamento *</label>
-                        <input type="text" class="form-control" id="departamentoOutros" maxlength="100" autocomplete="off" placeholder="Ex.: Xadrez">
+                        <input type="text" class="form-control form-control-lg" id="departamentoOutros" maxlength="100" autocomplete="off" placeholder="Ex.: Xadrez">
                     </div>
 
-                    <p class="subtitle-muted small mb-2"><span id="departamentosCount">0</span> selecionada(s)</p>
+                    <p class="section-subtitle mt-2"><span id="departamentosCount">0</span> selecionada(s)</p>
                     <button type="button" class="btn btn-primary btn-lg w-100" id="btnDepartamentos">CONTINUAR</button>
-                </div>
-            </section>
+                </section>
 
-            <!-- Etapa 5: LGPD -->
-            <section id="step5" class="step-panel d-none">
-                <div class="card shadow-sm border-0 mx-auto step-card">
-                    <div class="card-body p-4">
-                        <h2 class="section-title">Consentimento</h2>
-                        <div class="form-check mb-4">
+                <!-- Etapa 5: LGPD -->
+                <section id="step5" class="step-panel d-none">
+                    <h2 class="section-title">Consentimento</h2>
+                    <p class="section-subtitle">Última etapa antes de registrar sua resposta.</p>
+
+                    <div class="field">
+                        <div class="choice-card">
                             <input class="form-check-input" type="checkbox" id="lgpdCheck">
-                            <label class="form-check-label small" for="lgpdCheck">
-                                Autorizo receber notícias até a eleição.
+                            <label class="form-check-label" for="lgpdCheck">
+                                <span class="choice-title">Autorizo receber notícias até a eleição</span>
+                                <span class="choice-hint">Você pode pedir o descadastramento a qualquer momento.</span>
                             </label>
                         </div>
-                        <button type="button" class="btn btn-primary btn-lg w-100" id="btnSubmit" disabled>CONFIRMAR E ENVIAR</button>
                     </div>
-                </div>
-            </section>
 
-            <!-- Agradecimento -->
-            <section id="stepThanks" class="step-panel d-none">
-                <div class="text-center py-5">
-                    <div class="thanks-icon mb-3">✓</div>
-                    <h2 class="h5">Obrigado pela participação!</h2>
-                    <p class="text-muted">Sua resposta foi registrada com sucesso.</p>
-                </div>
-            </section>
-        </main>
+                    <button type="button" class="btn btn-primary btn-lg w-100" id="btnSubmit" disabled>CONFIRMAR E ENVIAR</button>
+                </section>
+
+                <!-- Agradecimento -->
+                <section id="stepThanks" class="step-panel d-none">
+                    <div class="thanks">
+                        <div class="thanks-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m5 12.5 4.5 4.5L19 7.5"/>
+                            </svg>
+                        </div>
+                        <h2 class="section-title">Obrigado pela participação!</h2>
+                        <p class="section-subtitle">Sua resposta foi registrada com sucesso.</p>
+                    </div>
+                </section>
+            </main>
+        </div>
     </div>
 
     <div class="toast-container position-fixed bottom-0 start-50 translate-middle-x p-3">

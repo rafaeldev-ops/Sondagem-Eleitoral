@@ -18,7 +18,8 @@ from app.core.config import get_settings
 #   delegation em vez de onclick= no HTML gerado.
 #
 # - Em style-src, saiu quando os style="" dos templates viraram classes
-#   (.step-card, .login-card). Sem ele, um atacante que consiga injetar
+#   (.flow-shell no fluxo público, .login-card no admin). Sem ele, um
+#   atacante que consiga injetar
 #   HTML não consegue mais usar CSS para atacar: nem sobrepor a página
 #   inteira com um formulário falso, nem exfiltrar conteúdo por seletor de
 #   atributo + background-image.

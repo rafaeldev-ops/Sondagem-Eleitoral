@@ -46,8 +46,9 @@ class TestSecurityHeaders:
 
     async def test_style_src_nao_permite_unsafe_inline(self, client):
         """
-        Os estilos inline dos templates viraram classes (.step-card,
-        .login-card) para permitir remover 'unsafe-inline' daqui — e o
+        Os estilos inline dos templates viraram classes (.flow-shell no
+        fluxo público, .login-card no admin) para permitir remover
+        'unsafe-inline' daqui — e o
         progresso das etapas, que era uma barra ajustada por
         element.style.width, virou bolinhas cujo estado é classList.
         Sem 'unsafe-inline', HTML injetado não consegue usar CSS para sobrepor a

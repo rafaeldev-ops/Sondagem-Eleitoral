@@ -25,6 +25,28 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+// Duas letras a partir do primeiro e do último nome ("Carlos Eduardo Silva"
+// -> "CS"). Nome de uma palavra só devolve uma letra, e nome vazio devolve
+// "?" em vez de string vazia — um círculo colorido em branco pareceria falha
+// de carregamento.
+function iniciais(nome) {
+    const partes = (nome || '').trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '?';
+    const primeira = partes[0][0];
+    const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
+    return (primeira + ultima).toUpperCase();
+}
+
+// Cor do avatar derivada do id: o mesmo candidato tem sempre a mesma cor, em
+// qualquer aparelho e em qualquer recarga. Se viesse de random, a lista
+// trocaria de cor a cada visita e a cor deixaria de servir como ponto de
+// referência para achar um nome.
+const AVATAR_CORES = 6;
+
+function corDoAvatar(id) {
+    return `c${Math.abs(Number(id) || 0) % AVATAR_CORES}`;
+}
+
 const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'stepThanks'];
 const stepLabels = [
     'Etapa 1 de 5 — Cadastro',
@@ -357,14 +379,12 @@ async function loadCandidatos() {
         card.innerHTML = `
             ${c.foto
                 ? `<img class="candidato-avatar" src="${foto}" alt="${nome}" loading="lazy">`
-                : `<div class="candidato-avatar-placeholder">FOTO</div>`}
+                : `<div class="candidato-avatar-placeholder ${corDoAvatar(c.id)}" aria-hidden="true">${escapeHtml(iniciais(c.nome))}</div>`}
             <div class="candidato-info">
                 <div class="candidato-nome">${nome}</div>
                 <div class="candidato-apelido">${apelido}</div>
             </div>
-            <div class="form-check mb-0">
-                <input class="form-check-input" type="checkbox" id="cand-${c.id}" value="${c.id}">
-            </div>`;
+            <input class="form-check-input" type="checkbox" id="cand-${c.id}" value="${c.id}" aria-label="Selecionar ${nome}">`;
         grid.appendChild(card);
 
         const opt = document.createElement('option');
@@ -400,9 +420,20 @@ async function loadCandidatos() {
                 state.selectedIds.delete(id);
                 card.classList.remove('selected');
             }
+            updateCandidatosCount();
             updatePreferidoOptions();
         });
     });
+
+    updateCandidatosCount();
+}
+
+// Contador "Selecionados X/20" no topo da lista. Lê o tamanho do Set, e não
+// um acumulador próprio: o caminho do limite atingido devolve o checkbox
+// para desmarcado sem mexer no Set, e um contador incrementado à mão sairia
+// de sincronia justamente aí.
+function updateCandidatosCount() {
+    document.getElementById('candidatosCount').textContent = state.selectedIds.size;
 }
 
 function updatePreferidoOptions() {

@@ -103,17 +103,19 @@ público do clube, não implementa `:has()`.
 
 ### Bolinhas das etapas
 
-`<ol class="step-dots">` com cinco `<li data-step="N">` no cabeçalho.
-Três estados, todos por classe:
+`<ol class="step-dots">` com cinco `<li data-step="N">`. Ficam **dentro do
+cartão branco** (`.flow-shell`), não no cabeçalho vermelho: no cabeçalho, a
+bolinha preenchida some contra o fundo e só o contorno restava para indicar
+estado. Três estados, todos por classe:
 
-- **futura** — círculo vazado, número apagado
-- **atual** (`.is-current`) — a que está esperando ser confirmada: anel
-  branco, número visível, escala levemente maior
-- **confirmada** (`.is-done`) — círculo preenchido com check
+- **futura** — círculo cinza-claro, número apagado
+- **atual** (`.is-current`) — a que está esperando ser confirmada: preenchida
+  de vermelho, número em branco, halo em volta
+- **confirmada** (`.is-done`) — preenchida de vermelho, com check
 
 O check é desenhado com borda rotacionada, não com o glifo `✓`: o caractere
 varia demais entre as fontes de sistema de Android e iOS para cair
-centralizado num círculo de 30px.
+centralizado num círculo de 44px.
 
 O conector fica em `::before` de cada bolinha (menos a primeira), então a
 linha "preenche" junto com o avanço sem elemento próprio no HTML.
@@ -135,11 +137,26 @@ literalmente.
 ### Cabeçalho
 
 ```
-        Sondagem 2026        <- serif, tracking aberto, "2026" em itálico
-   ──  SEMPRE TRICOLOR  ──   <- sans, uppercase, tracking largo, filetes
+   ⛊ SONDAGEM 2026     <- sobrancelha: pequena, tracking largo, peso leve
+   SEMPRE TRICOLOR     <- wordmark: grande, peso 800, tracking negativo
 ```
 
-O `<h1>` envolve as duas linhas; `{{ app_name }}` continua vindo do contexto.
+A primeira versão invertia isso — "Sondagem 2026" grande em serif, o clube
+pequeno embaixo — e os dois títulos competiam sem que nenhum mandasse. O
+contraste entre sobrancelha discreta e wordmark pesado é o que dá o ar de
+marca; a hierarquia importa mais aqui do que a escolha da família tipográfica.
+
+`{{ app_name }}` continua vindo do contexto, agora no `<h1>`. O ícone de
+escudo é SVG inline — nenhum host novo na CSP e nada a baixar antes da
+primeira pintura.
+
+### Candidatos
+
+O quadro cinza escrito "FOTO" virou avatar redondo com as iniciais do nome,
+em seis cores fixas escolhidas por `id % 6` — o mesmo candidato tem sempre a
+mesma cor, então ela serve de referência para achar um nome numa lista longa.
+A cor é **classe** (`.c0`…`.c5`), nunca atributo de estilo montado no
+`innerHTML`: a CSP bloqueia atributo de estilo venha ele do servidor ou do JS.
 
 ### Tema
 
