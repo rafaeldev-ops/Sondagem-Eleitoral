@@ -118,7 +118,7 @@ Lista modalidades/departamentos ativos.
 
 ### POST `/survey/submit`
 
-Registra voto e dispara o webhook configurado.
+Registra o voto.
 
 **Body:**
 ```json
@@ -210,9 +210,18 @@ Exporta respostas em Excel (.xlsx).
 
 ---
 
-### POST `/admin/webhook/retry`
+### GET `/admin/export/resultados/csv`
 
-Reprocessa envios de webhook pendentes/falhos.
+Exporta o resultado consolidado em CSV: uma linha por pré-candidato, com
+votos, percentual sobre os respondentes e quantas vezes foi escolhido como
+ponto focal. **Não contém identificador pessoal** — é a exportação indicada
+para compartilhar fora do clube.
+
+---
+
+### GET `/admin/export/resultados/excel`
+
+O mesmo conteúdo em Excel (.xlsx).
 
 ---
 

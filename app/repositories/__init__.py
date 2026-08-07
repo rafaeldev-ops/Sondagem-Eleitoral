@@ -10,7 +10,6 @@ from app.models import (
     Departamento,
     Preferencia,
     Resposta,
-    WebhookLog,
 )
 from app.utils.cpf import normalize_cpf
 from app.utils.socio import normalize_numero_socio
@@ -111,6 +110,38 @@ class CandidatoRepository:
         result = await self.db.execute(select(func.count()).select_from(Candidato))
         return result.scalar_one()
 
+    async def resultado_agregado(self) -> list[tuple[Candidato, int, int]]:
+        """
+        (candidato, votos, vezes escolhido como ponto focal), do mais votado
+        para o menos votado.
+
+        As duas contagens vêm de subconsultas correlacionadas, e NÃO de dois
+        LEFT JOIN no mesmo SELECT: com join, cada linha de `respostas` se
+        multiplicaria por cada linha de `preferencias` do mesmo candidato, e
+        os dois números sairiam inflados — silenciosamente, porque o
+        resultado continua parecendo plausível. Quem tem zero voto aparece
+        com zero, em vez de sumir da lista.
+        """
+        votos = (
+            select(func.count(Resposta.id))
+            .where(Resposta.candidato_id == Candidato.id)
+            .correlate(Candidato)
+            .scalar_subquery()
+        )
+        focal = (
+            select(func.count(Preferencia.id))
+            .where(Preferencia.candidato_preferido_id == Candidato.id)
+            .correlate(Candidato)
+            .scalar_subquery()
+        )
+
+        result = await self.db.execute(
+            select(Candidato, votos.label("votos"), focal.label("focal")).order_by(
+                votos.desc(), Candidato.nome
+            )
+        )
+        return [(linha[0], linha[1], linha[2]) for linha in result.all()]
+
 
 class DepartamentoRepository:
     def __init__(self, db: AsyncSession) -> None:
@@ -142,26 +173,6 @@ class PreferenciaRepository:
         self.db.add(preferencia)
         await self.db.flush()
         return preferencia
-
-
-class WebhookLogRepository:
-    def __init__(self, db: AsyncSession) -> None:
-        self.db = db
-
-    async def create(self, log: WebhookLog) -> WebhookLog:
-        self.db.add(log)
-        await self.db.flush()
-        return log
-
-    async def list_pending(self) -> list[WebhookLog]:
-        result = await self.db.execute(
-            select(WebhookLog).where(WebhookLog.status.in_(["pending", "failed"]))
-        )
-        return list(result.scalars().all())
-
-    async def update(self, log: WebhookLog) -> WebhookLog:
-        await self.db.flush()
-        return log
 
 
 class AuditLogRepository:

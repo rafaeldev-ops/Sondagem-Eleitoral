@@ -112,4 +112,3 @@ curl http://localhost:8000/health
 | OTP não enviado | Verifique credenciais do provider; use `OTP_PROVIDER=mock` para testes |
 | Erro de conexão DB | Aguarde healthcheck do PostgreSQL; verifique `DATABASE_URL` |
 | reCAPTCHA falha | Confirme domínio registrado no Google reCAPTCHA |
-| Webhook não recebe | Verifique `WEBHOOK_URL`; use retry manual no admin |

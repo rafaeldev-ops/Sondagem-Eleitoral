@@ -7,11 +7,9 @@ antes da pergunta existir). O erro fácil aqui é achatar os dois últimos num
 "Não" só — é isso que a maior parte destes testes vigia.
 """
 
-import json
-
 from sqlalchemy import select
 
-from app.models import Associado, Candidato, WebhookLog
+from app.models import Associado, Candidato
 
 
 async def _votar(
@@ -122,46 +120,6 @@ class TestCadastro:
         associado = (await db_session.execute(select(Associado))).scalars().one()
         assert associado.titular is False
         assert associado.titular is not None
-
-
-class TestPayloadDoWebhook:
-    async def test_payload_carrega_titular(
-        self,
-        client,
-        db_session,
-        valid_cpf,
-        numero_socio,
-        read_otp_code,
-        departamentos,
-    ):
-        await _votar(
-            client, db_session, valid_cpf, numero_socio, read_otp_code,
-            departamentos, "11955550004", titular=True,
-        )
-
-        log = (await db_session.execute(select(WebhookLog))).scalars().first()
-        assert json.loads(log.payload)["titular"] is True
-
-    async def test_payload_do_nao_titular_sai_como_false(
-        self,
-        client,
-        db_session,
-        valid_cpf,
-        numero_socio,
-        read_otp_code,
-        departamentos,
-    ):
-        await _votar(
-            client, db_session, valid_cpf, numero_socio, read_otp_code,
-            departamentos, "11955550005", titular=False,
-        )
-
-        log = (await db_session.execute(select(WebhookLog))).scalars().first()
-        payload = json.loads(log.payload)
-        assert payload["titular"] is False
-        # O n8n distingue chave ausente de chave nula; o payload não usa nulo
-        # em campo nenhum, então "titular" precisa estar sempre presente.
-        assert "titular" in payload
 
 
 class TestExportacoes:

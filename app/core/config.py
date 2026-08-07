@@ -51,14 +51,6 @@ class Settings(BaseSettings):
     recaptcha_site_key: str = Field(default="", alias="RECAPTCHA_SITE_KEY")
     recaptcha_min_score: float = Field(default=0.5, alias="RECAPTCHA_MIN_SCORE")
 
-    webhook_url: str = Field(default="", alias="WEBHOOK_URL")
-    webhook_token: str = Field(default="", alias="WEBHOOK_TOKEN")
-    webhook_retry_max: int = Field(default=5, alias="WEBHOOK_RETRY_MAX")
-    webhook_retry_delay_seconds: int = Field(
-        default=60,
-        alias="WEBHOOK_RETRY_DELAY_SECONDS",
-    )
-
     admin_username: str = Field(alias="ADMIN_USERNAME")
     admin_password: str = Field(alias="ADMIN_PASSWORD")
     admin_jwt_expire_minutes: int = Field(

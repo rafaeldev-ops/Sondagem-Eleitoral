@@ -1,5 +1,3 @@
-import asyncio
-import contextlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,9 +17,7 @@ from app.core.limiter import limiter
 from app.core.logging_config import setup_logging
 from app.middlewares.request_id import RequestIdMiddleware
 from app.middlewares.security_headers import SecurityHeadersMiddleware
-from app.services.otp_service import OTPService
-from app.services.survey_service import SurveyService
-from app.database.session import AsyncSessionLocal, engine
+from app.database.session import engine
 
 settings = get_settings()
 # Logs em JSON fora de modo debug: formato esperado por agregadores de log
@@ -35,23 +31,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
-async def webhook_retry_worker() -> None:
-    """Background task to retry failed webhook deliveries."""
-    while True:
-        try:
-            async with AsyncSessionLocal() as db:
-                otp_service = OTPService(redis_service)
-                service = SurveyService(db, otp_service)
-                count = await service.retry_pending_webhook()
-                if count:
-                    logger.info("Webhook retry worker: %d envio(s) reprocessado(s)", count)
-                await db.commit()
-        except Exception as exc:
-            logger.exception("Erro no worker de webhook: %s", exc)
-
-        await asyncio.sleep(settings.webhook_retry_delay_seconds)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     upload_dir = Path(settings.upload_dir)
@@ -59,18 +38,8 @@ async def lifespan(app: FastAPI):
     static_uploads = BASE_DIR / "static" / "uploads" / "candidatos"
     static_uploads.mkdir(parents=True, exist_ok=True)
 
-    retry_task = asyncio.create_task(webhook_retry_worker())
     logger.info("Aplicação iniciada: %s", settings.app_name)
     yield
-
-    # Shutdown gracioso: cancela o worker de background e espera ele
-    # realmente parar (não só dispara cancel() e segue em frente) antes de
-    # fechar as conexões que ele usa — evita "connection already closed" no
-    # meio de uma iteração do worker se o shutdown pegar ele no meio de uma
-    # tentativa de retry do webhook.
-    retry_task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await retry_task
 
     await redis_service.close()
     await engine.dispose()

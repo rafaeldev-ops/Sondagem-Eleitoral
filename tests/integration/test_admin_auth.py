@@ -1,3 +1,6 @@
+import pytest
+
+
 class TestAdminLogin:
     async def test_login_with_correct_credentials(self, client):
         res = await client.post(
@@ -29,21 +32,15 @@ class TestAdminLogin:
         assert res.status_code == 200
 
 
-class TestRotaDeRetryDoWebhook:
-    """A rota foi renomeada de /admin/pipefy/retry para /admin/webhook/retry
-    quando a integração deixou de ser específica do Pipefy."""
+class TestRotasDeWebhookForamRemovidas:
+    """O envio por webhook saiu do projeto (migration 008): as exportações
+    já entregavam tudo o que o payload levava. Nenhuma das duas grafias
+    históricas da rota pode voltar a responder — se alguma voltar, é sinal
+    de que a remoção foi revertida pela metade."""
 
-    async def test_rota_nova_responde(self, client, admin_token):
-        res = await client.post(
-            "/api/admin/webhook/retry",
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert res.status_code == 200
-        assert "retried" in res.json()
-
-    async def test_rota_antiga_nao_existe_mais(self, client, admin_token):
-        res = await client.post(
-            "/api/admin/pipefy/retry",
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
+    @pytest.mark.parametrize(
+        "rota", ["/api/admin/webhook/retry", "/api/admin/pipefy/retry"]
+    )
+    async def test_rota_nao_existe_mais(self, client, admin_token, rota):
+        res = await client.post(rota, headers={"Authorization": f"Bearer {admin_token}"})
         assert res.status_code == 404

@@ -182,31 +182,11 @@ class SessionResponse(BaseModel):
     message: str
 
 
-class WebhookPayload(BaseModel):
+class ResultadoCandidato(BaseModel):
+    """Uma linha do resultado agregado — sem nenhum identificador pessoal."""
+
     nome: str
-    # numero_socio, departamentos e departamento_outros têm default: o
-    # worker de retry re-hidrata payloads GRAVADOS em webhook_logs
-    # (deserialize_payload -> WebhookPayload(**json.loads(...))), e linhas
-    # antigas não têm esses campos. Sem default, uma única linha antiga
-    # trava o retry para sempre (ValidationError não tratado no loop do
-    # SurveyService, antes do contador de tentativas ser incrementado).
-    # Isso NÃO muda o payload de saída: submit_vote sempre define os três
-    # explicitamente e model_dump() sempre emite todos os campos
-    # declarados.
-    numero_socio: str = ""
-    cpf: str
-    telefone: str
-    # Mesmo motivo de numero_socio acima: default obrigatório porque este
-    # schema também é o sentido de VOLTA (webhook_logs -> retry). False aqui
-    # é só o valor de re-hidratação de payload antigo, que já foi montado e
-    # gravado sem o campo; não é resposta de ninguém. Toda saída nova passa
-    # pelo submit_vote, que sempre informa titular explicitamente.
-    titular: bool = False
-    candidatos: list[str]
-    preferido: str
-    departamentos: list[str] = Field(default_factory=list)
-    # String vazia quando não se aplica, nunca None: o n8n trata campo
-    # ausente e campo nulo de formas diferentes.
-    departamento_outros: str = ""
-    aceite_lgpd: bool
-    data: str
+    apelido: str
+    votos: int
+    percentual: float
+    ponto_focal: int

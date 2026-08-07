@@ -222,11 +222,16 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
-document.getElementById('retryWebhook').addEventListener('click', async () => {
-    const res = await fetch('/api/admin/webhook/retry', {
-        method: 'POST',
-        headers: csrfHeaders(),
-    });
-    const data = await res.json();
-    alert(data.message);
+document.getElementById('exportResultadosCsv').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/admin/export/resultados/csv');
+    const blob = await res.blob();
+    downloadBlob(blob, 'resultados.csv');
+});
+
+document.getElementById('exportResultadosExcel').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/admin/export/resultados/excel');
+    const blob = await res.blob();
+    downloadBlob(blob, 'resultados.xlsx');
 });

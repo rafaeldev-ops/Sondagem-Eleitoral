@@ -17,9 +17,7 @@ from app.core.security import (
 )
 from app.schemas import AdminLoginRequest, AdminTokenResponse, StatsResponse
 from app.services.admin_service import AdminService
-from app.services.survey_service import ExportService, SurveyService
-from app.services.otp_service import OTPService
-from app.api.deps import get_otp_service
+from app.services.survey_service import ExportService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -233,12 +231,33 @@ async def export_excel(
     )
 
 
-@router.post("/webhook/retry")
-async def retry_webhook(
+# Exportações agregadas: mesmo conteúdo das de cima menos TODO identificador
+# pessoal. Para quem só precisa do resultado da sondagem, é o arquivo certo a
+# entregar — não há motivo para repassar CPF e telefone de associado junto de
+# uma contagem de votos.
+@router.get("/export/resultados/csv")
+async def export_resultados_csv(
     db: AsyncSession = Depends(get_db),
-    otp_service: OTPService = Depends(get_otp_service),
     _: dict = Depends(get_admin_token),
-) -> dict:
-    service = SurveyService(db, otp_service)
-    count = await service.retry_pending_webhook()
-    return {"retried": count, "message": f"{count} envio(s) reprocessado(s)"}
+) -> Response:
+    service = ExportService(db)
+    content = await service.export_resultados_csv()
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=resultados.csv"},
+    )
+
+
+@router.get("/export/resultados/excel")
+async def export_resultados_excel(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_admin_token),
+) -> Response:
+    service = ExportService(db)
+    content = await service.export_resultados_excel()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=resultados.xlsx"},
+    )

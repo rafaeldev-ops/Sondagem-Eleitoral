@@ -14,7 +14,6 @@ Antes do primeiro deploy, tenha em mãos:
 
 - [ ] Provedor de OTP contratado (Twilio, Zenvia ou Z-API) com credenciais
 - [ ] Chaves do Google reCAPTCHA v3 (site key + secret key)
-- [ ] Destino de webhook (n8n) configurado, com `WEBHOOK_URL` e `WEBHOOK_TOKEN` definidos
 - [ ] Domínio com certificado TLS (HTTPS) — a aplicação trata CPF e
       telefone; HTTP puro não é aceitável
 - [ ] Hash bcrypt da senha do admin (ver seção 2)
@@ -36,7 +35,6 @@ default:
 | `ADMIN_PASSWORD` | **hash bcrypt**, não a senha: `python scripts/hash_password.py "sua-senha"` |
 | `OTP_PROVIDER` | `twilio`, `zenvia` ou `zapi` — **nunca `mock`** |
 | `RECAPTCHA_SECRET_KEY` | console do Google reCAPTCHA |
-| `WEBHOOK_URL` / `WEBHOOK_TOKEN` | ver `docs/WEBHOOK.md` |
 | `HTTPS_ONLY` | `true` (ativa HSTS) |
 | `TRUST_PROXY_HEADERS` | `true` **somente** se houver proxy reverso confiável na frente |
 | `ALLOWED_ORIGINS` | domínio real, ex: `https://sondagem.seuclube.com.br` |
@@ -81,7 +79,6 @@ curl -f https://seu-dominio/admin           # painel admin
 - [ ] `/api/docs` responde **404** (confirma `DEBUG=false`)
 - [ ] Página inicial carrega e lista os candidatos
 - [ ] Um cadastro de teste recebe SMS de verdade
-- [ ] O evento do voto chega ao workflow configurado no n8n
 - [ ] Logs saem em JSON com `request_id` preenchido
 
 ---
@@ -186,7 +183,6 @@ Faça rollback se, após o deploy:
 - `/health/ready` não fica verde em alguns minutos
 - taxa de erro 5xx sobe visivelmente nos logs
 - o fluxo de OTP para de funcionar (ninguém recebe código)
-- os eventos de voto param de chegar ao n8n
 
 Rollback primeiro, investigação depois — não debugue com a sondagem no ar
 quebrada.
@@ -222,7 +218,6 @@ proxy reverso enviar `X-Request-ID`, esse valor é reaproveitado.
 
 | Sinal | Significado |
 |---|---|
-| `level: ERROR` com `Erro no worker de webhook` | Eventos não estão chegando ao destino configurado (n8n) |
 | `OTP_PROVIDER=mock fora de modo debug` | **Grave** — configuração errada, nenhum SMS está saindo |
 | `reCAPTCHA sem RECAPTCHA_SECRET_KEY` | Proteção anti-bot desligada |
 | Muitos 429 | Ataque, ou rate limit apertado demais |
@@ -255,23 +250,21 @@ docker compose logs app | tail -50
 3. Saldo/cota do provedor acabou?
 4. O número tem DDD e 9 dígitos? (`app/utils/phone.py` valida isso)
 
-### Eventos não chegam ao n8n
+### Como entregar os dados a terceiros
 
-O envio é assíncrono com retry automático — uma falha momentânea se
-resolve sozinha. Se persistir:
+Não há mais envio automático: a saída de dados é a exportação pelo painel
+admin. São duas, e a escolha entre elas importa.
 
-```bash
-# ver a fila de pendentes
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "SELECT id, status, tentativas, ultimo_erro FROM webhook_logs WHERE status != 'sent';"
-```
+**Resultado consolidado** (`Resultado CSV` / `Resultado Excel`) — votos por
+pré-candidato, sem nenhum identificador pessoal. É o arquivo a compartilhar
+com quem só precisa saber quem lidera.
 
-Confira se `WEBHOOK_TOKEN` ainda bate com a credencial de Header Auth
-configurada no node Webhook do n8n, e se `WEBHOOK_URL` aponta para a
-Production URL correta do node (ver `docs/WEBHOOK.md`).
-
-**As respostas nunca se perdem**: ficam no banco mesmo se o envio ao n8n
-falhar. Dá para exportar pelo painel admin e importar manualmente.
+**Respostas completas** (`Exportar CSV` / `Exportar Excel`) — inclui nome,
+CPF e telefone dos associados. O aviso de privacidade do formulário diz ao
+sócio que os dados são usados "exclusivamente para validação de segurança e
+prevenção contra duplicidade"; repassar este arquivo para fora vai além do
+que foi informado. Alinhe com quem responde pelo clube antes, ou ajuste o
+texto do aviso.
 
 ### Usuário diz que não consegue votar
 
@@ -299,7 +292,7 @@ design).
   cookie viaja em texto puro se alguém acessar o painel por `http://`
 - Postgres e Redis não devem ter porta pública; no `docker-compose.yml`
   estão em `127.0.0.1` de propósito
-- Revise `webhook_logs` e `audit_logs` periodicamente
+- Revise `audit_logs` periodicamente
 - Após a sondagem terminar, considere exportar os dados e **remover os
   CPFs do banco** — LGPD: não guarde dado pessoal além do necessário
 

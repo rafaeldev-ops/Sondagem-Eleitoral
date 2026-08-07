@@ -1,19 +1,16 @@
 import csv
 import io
 import logging
-from datetime import UTC, datetime
 
 from openpyxl import Workbook
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.webhook import WebhookService
 from app.models import (
     Associado,
     AssociadoDepartamento,
     Preferencia,
     Resposta,
-    WebhookLog,
 )
 from app.repositories import (
     AssociadoRepository,
@@ -22,9 +19,7 @@ from app.repositories import (
     DepartamentoRepository,
     PreferenciaRepository,
     RespostaRepository,
-    WebhookLogRepository,
 )
-from app.schemas import WebhookPayload
 from app.services.otp_service import OTPService
 from app.utils.cpf import format_cpf
 
@@ -65,9 +60,7 @@ class SurveyService:
         self.resposta_repo = RespostaRepository(db)
         self.preferencia_repo = PreferenciaRepository(db)
         self.departamento_repo = DepartamentoRepository(db)
-        self.webhook_log_repo = WebhookLogRepository(db)
         self.audit_repo = AuditLogRepository(db)
-        self.webhook_service = WebhookService()
 
     async def check_cpf_available(self, cpf: str) -> tuple[bool, str | None]:
         existing = await self.associado_repo.get_by_cpf(cpf)
@@ -199,8 +192,10 @@ class SurveyService:
             return False, msg
 
         candidatos = await self.candidato_repo.list_active()
+        # Só o conjunto de ids: o mapa id->objeto existia para montar os
+        # nomes do payload do webhook, que saiu na migration 008. A validação
+        # abaixo precisa apenas saber quais ids estão ativos.
         active_ids = {c.id for c in candidatos}
-        candidato_map = {c.id: c for c in candidatos}
 
         if not all(cid in active_ids for cid in candidatos_ids):
             return False, "Um ou mais candidatos selecionados são inválidos"
@@ -278,37 +273,6 @@ class SurveyService:
         )
         await self.db.flush()
 
-        candidatos_nomes = [candidato_map[cid].nome for cid in candidatos_ids]
-        preferido_nome = candidato_map[candidato_preferido_id].nome
-
-        departamentos_nomes = [
-            d.nome
-            for d in sorted(
-                (departamento_map[did] for did in departamentos_ids),
-                key=lambda d: d.ordem,
-            )
-        ]
-
-        payload = WebhookPayload(
-            nome=associado.nome,
-            numero_socio=associado.numero_socio,
-            cpf=format_cpf(associado.cpf),
-            telefone=associado.telefone,
-            # bool() achata o None da sessão pré-deploy para False: o payload
-            # do n8n não usa nulo em campo nenhum (mesma razão do
-            # departamento_outros="" em vez de None). A distinção entre "não
-            # é titular" e "não foi perguntado" fica preservada no banco e na
-            # exportação, que são a fonte de verdade da análise.
-            titular=bool(associado.titular),
-            candidatos=candidatos_nomes,
-            preferido=preferido_nome,
-            departamentos=departamentos_nomes,
-            departamento_outros=associado.departamento_outros or "",
-            aceite_lgpd=aceite_lgpd,
-            data=associado.data_resposta.isoformat(),
-        )
-
-        await self._enqueue_webhook(associado.id, payload)
         await self.otp_service.delete_session(session_token)
 
         await self.audit_repo.create(
@@ -318,50 +282,6 @@ class SurveyService:
             user_agent,
         )
         return True, None
-
-    async def _enqueue_webhook(self, associado_id: int, payload: WebhookPayload) -> None:
-        log = WebhookLog(
-            associado_id=associado_id,
-            payload=self.webhook_service.serialize_payload(payload),
-            status="pending",
-        )
-        await self.webhook_log_repo.create(log)
-
-        success, error = await self.webhook_service.send_webhook(payload)
-        log.tentativas += 1
-        if success:
-            log.status = "sent"
-            log.enviado_em = datetime.now(UTC)
-        else:
-            log.status = "failed"
-            log.ultimo_erro = error
-        await self.webhook_log_repo.update(log)
-
-    async def retry_pending_webhook(self) -> int:
-        pending = await self.webhook_log_repo.list_pending()
-        retried = 0
-        settings = self.webhook_service.settings
-
-        for log in pending:
-            if log.tentativas >= settings.webhook_retry_max:
-                continue
-
-            payload = self.webhook_service.deserialize_payload(log.payload)
-            success, error = await self.webhook_service.send_webhook(payload)
-            log.tentativas += 1
-
-            if success:
-                log.status = "sent"
-                log.enviado_em = datetime.now(UTC)
-                log.ultimo_erro = None
-            else:
-                log.status = "failed"
-                log.ultimo_erro = error
-
-            await self.webhook_log_repo.update(log)
-            retried += 1
-
-        return retried
 
 
 def _rotulo_titular(valor: bool | None) -> str:
@@ -379,9 +299,51 @@ def _rotulo_titular(valor: bool | None) -> str:
     return "Sim" if valor else "Não"
 
 
+_CABECALHO_RESULTADOS = [
+    "Candidato",
+    "Apelido",
+    "Votos",
+    "% dos Respondentes",
+    "Ponto Focal",
+]
+
+
 class ExportService:
     def __init__(self, db: AsyncSession) -> None:
         self.associado_repo = AssociadoRepository(db)
+        self.candidato_repo = CandidatoRepository(db)
+
+    async def _linhas_resultados(self) -> list[list]:
+        """
+        Resultado agregado, sem nenhum identificador pessoal: uma linha por
+        candidato, com votos, percentual e quantas vezes foi escolhido como
+        ponto focal.
+
+        Existe para o caso de quem só precisa do RESULTADO da sondagem —
+        quem lidera, quantos votos cada um teve. Nesse caso não há motivo
+        para entregar CPF, telefone ou nome de associado, e o aviso de
+        privacidade do formulário fala em uso restrito a validação de
+        segurança e prevenção de duplicidade. Quem precisar do dado nominal
+        continua tendo export_csv/export_excel.
+        """
+        agregado = await self.candidato_repo.resultado_agregado()
+        total_respondentes = await self.associado_repo.count()
+
+        linhas = []
+        for candidato, votos, focal in agregado:
+            # Guarda de divisão por zero: antes do primeiro voto a sondagem
+            # existe e o relatório pode ser baixado.
+            percentual = (votos / total_respondentes * 100) if total_respondentes else 0.0
+            linhas.append(
+                [
+                    candidato.nome,
+                    candidato.apelido,
+                    votos,
+                    round(percentual, 1),
+                    focal,
+                ]
+            )
+        return linhas
 
     async def export_csv(self) -> str:
         associados = await self.associado_repo.list_all_with_details()
@@ -475,6 +437,25 @@ class ExportService:
                     "Sim" if a.aceite_lgpd else "Não",
                 ]
             )
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        return buffer.getvalue()
+
+    async def export_resultados_csv(self) -> str:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(_CABECALHO_RESULTADOS)
+        writer.writerows(await self._linhas_resultados())
+        return output.getvalue()
+
+    async def export_resultados_excel(self) -> bytes:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Resultados"
+        ws.append(_CABECALHO_RESULTADOS)
+        for linha in await self._linhas_resultados():
+            ws.append(linha)
 
         buffer = io.BytesIO()
         wb.save(buffer)

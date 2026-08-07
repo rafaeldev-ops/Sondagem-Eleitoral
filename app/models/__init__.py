@@ -106,23 +106,6 @@ class Preferencia(Base):
     candidato_preferido: Mapped["Candidato"] = relationship()
 
 
-class WebhookLog(Base):
-    __tablename__ = "webhook_logs"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    associado_id: Mapped[int] = mapped_column(ForeignKey("associados.id"), nullable=False)
-    payload: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    tentativas: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    ultimo_erro: Mapped[str | None] = mapped_column(Text, nullable=True)
-    enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
