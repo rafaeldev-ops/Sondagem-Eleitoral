@@ -36,7 +36,7 @@ default:
 | `OTP_PROVIDER` | `twilio`, `zenvia` ou `zapi` — **nunca `mock`** |
 | `RECAPTCHA_SECRET_KEY` | console do Google reCAPTCHA |
 | `HTTPS_ONLY` | `true` (ativa HSTS) |
-| `TRUST_PROXY_HEADERS` | `true` **somente** se houver proxy reverso confiável na frente |
+| `TRUST_PROXY_HEADERS` | `true` **somente** se houver proxy reverso confiável na frente — e obrigatoriamente `true` se houver, senão o rate limit por IP vira limite global do site |
 | `ALLOWED_ORIGINS` | domínio real, ex: `https://sondagem.seuclube.com.br` |
 
 A aplicação **recusa iniciar** se `ADMIN_PASSWORD` não for um hash bcrypt

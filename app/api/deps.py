@@ -12,6 +12,7 @@ from app.core.security import (
 )
 from app.database.session import get_db  # noqa: F401 — re-exported for route imports
 from app.services.otp_service import OTPService, RedisService
+from app.utils.client_ip import extrair_ip_do_cliente
 
 # Métodos que alteram estado e por isso precisam passar pela checagem de
 # CSRF. GET/HEAD/OPTIONS ficam de fora porque não deveriam ter efeito
@@ -31,22 +32,14 @@ def get_otp_service(redis_svc: RedisService = Depends(get_redis_service)) -> OTP
 
 async def get_client_ip(request: Request) -> str | None:
     """
-    Retorna o IP do cliente para audit log e rate limiting.
+    IP do cliente para o audit log, como dependência do FastAPI.
 
-    X-Forwarded-For só é confiado quando TRUST_PROXY_HEADERS=true está
-    explicitamente configurado — ou seja, quando se sabe que a aplicação
-    roda atrás de um proxy reverso confiável (nginx, Traefik, load balancer
-    do provedor de cloud) que sobrescreve esse header nas requisições que
-    encaminha. Sem isso, qualquer cliente pode setar X-Forwarded-For
-    diretamente e falsificar o IP registrado nos logs de auditoria.
+    A lógica mora em app/utils/client_ip.py porque o rate limiter precisa
+    dela também, e a key_func do slowapi é síncrona — não dá para reusar
+    esta função async. Enquanto as duas eram implementações separadas, o
+    limitador ficou para trás e ignorava X-Forwarded-For.
     """
-    if get_settings().trust_proxy_headers:
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return None
+    return extrair_ip_do_cliente(request)
 
 
 def get_user_agent(request: Request) -> str | None:

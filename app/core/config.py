@@ -58,19 +58,41 @@ class Settings(BaseSettings):
         alias="ADMIN_JWT_EXPIRE_MINUTES",
     )
 
-    rate_limit_default: str = Field(default="60/minute", alias="RATE_LIMIT_DEFAULT")
+    rate_limit_default: str = Field(default="180/minute", alias="RATE_LIMIT_DEFAULT")
     rate_limit_otp: str = Field(default="10/minute", alias="RATE_LIMIT_OTP")
+    # O login do admin NÃO foi afrouxado junto com os limites públicos
+    # abaixo: aqui o limite por IP é a proteção principal contra força
+    # bruta, e o painel é usado por meia dúzia de pessoas — não há cenário
+    # legítimo de dezenas de tentativas por minuto do mesmo IP.
     rate_limit_admin_login: str = Field(default="5/minute", alias="RATE_LIMIT_ADMIN_LOGIN")
-    # Limites das rotas públicas de sondagem. Estavam hardcoded em
-    # app/api/routes/survey.py, o que impedia afrouxá-los em ambiente de
-    # teste de carga (e apertá-los em produção) sem editar código. Os
-    # defaults abaixo são exatamente os valores que já estavam no código —
-    # nenhuma mudança de comportamento para quem não define as variáveis.
-    rate_limit_validate_cpf: str = Field(default="30/minute", alias="RATE_LIMIT_VALIDATE_CPF")
-    rate_limit_register: str = Field(default="10/minute", alias="RATE_LIMIT_REGISTER")
-    rate_limit_verify_otp: str = Field(default="15/minute", alias="RATE_LIMIT_VERIFY_OTP")
-    rate_limit_resend_otp: str = Field(default="5/minute", alias="RATE_LIMIT_RESEND_OTP")
-    rate_limit_submit: str = Field(default="10/minute", alias="RATE_LIMIT_SUBMIT")
+
+    # Limites das rotas públicas de sondagem.
+    #
+    # São uma barreira GROSSA contra uma origem abusiva, não a proteção
+    # principal — esta é feita por controles que não dependem do IP:
+    #
+    #   - cooldown por TELEFONE no envio de OTP (OTPService.send_otp), que é
+    #     o que impede bombardear o celular de alguém com SMS;
+    #   - unicidade de CPF e de número de sócio, checadas ANTES de gastar
+    #     SMS, o que limita cada pessoa a um voto;
+    #   - reCAPTCHA v3 no cadastro, que falha fechado fora de DEBUG.
+    #
+    # Os valores anteriores (10/minuto no cadastro) partiam da premissa de
+    # que um IP equivale a uma pessoa. Isso não vale no cenário real desta
+    # sondagem: o link circula em grupo de WhatsApp, todo mundo abre pelo
+    # celular, e operadoras colocam milhares de assinantes atrás do mesmo IP
+    # público (CGNAT). Com o limite apertado, sócios legítimos passam a se
+    # bloquear entre si — enquanto um atacante de verdade troca de IP
+    # barato. O limite apertado punia, na prática, só quem não era o alvo.
+    #
+    # Todos continuam ajustáveis por variável de ambiente: aperte se a
+    # sondagem for divulgada por canal fechado, onde a premissa de um IP por
+    # pessoa volta a valer.
+    rate_limit_validate_cpf: str = Field(default="90/minute", alias="RATE_LIMIT_VALIDATE_CPF")
+    rate_limit_register: str = Field(default="30/minute", alias="RATE_LIMIT_REGISTER")
+    rate_limit_verify_otp: str = Field(default="45/minute", alias="RATE_LIMIT_VERIFY_OTP")
+    rate_limit_resend_otp: str = Field(default="15/minute", alias="RATE_LIMIT_RESEND_OTP")
+    rate_limit_submit: str = Field(default="30/minute", alias="RATE_LIMIT_SUBMIT")
     https_only: bool = Field(default=False, alias="HTTPS_ONLY")
     trust_proxy_headers: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
 
