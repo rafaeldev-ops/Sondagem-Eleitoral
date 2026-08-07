@@ -400,8 +400,19 @@ function renderDepartamentos() {
     lista.querySelectorAll('.departamento-item').forEach(item => {
         const id = Number(item.dataset.id);
         const check = item.querySelector('input');
-        item.addEventListener('click', (e) => {
-            if (e.target !== check) check.checked = !check.checked;
+        // Escuta "change" no checkbox, não "click" na linha: o <label for>
+        // associa o texto ao checkbox, então clicar no nome dispara um
+        // click na linha (que alternaria checked manualmente aqui) e, em
+        // seguida, a ativação nativa do label encaminha um click sintético
+        // para o checkbox — cujo próprio passo de pré-ativação alterna
+        // checked de novo, desfazendo a primeira alternância. Resultado
+        // líquido: clicar no nome não fazia nada. "change" dispara uma
+        // única vez, venha o toggle do clique no label, no próprio
+        // checkbox ou do teclado (Tab+Espaço), então não há esse zerar
+        // duplicado. Os listeners são recriados a cada renderDepartamentos()
+        // porque lista.innerHTML descarta os elementos antigos (e seus
+        // listeners) junto — não há acúmulo em re-render.
+        check.addEventListener('change', () => {
             item.classList.toggle('selected', check.checked);
             if (check.checked) {
                 state.selectedDepartamentoIds.add(id);
