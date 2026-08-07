@@ -7,6 +7,8 @@ const state = {
     candidatos: [],
     selectedIds: new Set(),
     resendInterval: null,
+    departamentos: [],
+    selectedDepartamentoIds: new Set(),
 };
 
 // Limite de seleção do desenho aprovado ("máximo 20"). Também reforçado no
@@ -23,12 +25,13 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
-const steps = ['step1', 'step2', 'step3', 'step4', 'stepThanks'];
+const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'stepThanks'];
 const stepLabels = [
-    'Etapa 1 de 4 — Cadastro',
-    'Etapa 2 de 4 — Verificação',
-    'Etapa 3 de 4 — Candidatos',
-    'Etapa 4 de 4 — Consentimento',
+    'Etapa 1 de 5 — Cadastro',
+    'Etapa 2 de 5 — Verificação',
+    'Etapa 3 de 5 — Candidatos',
+    'Etapa 4 de 5 — Modalidades',
+    'Etapa 5 de 5 — Consentimento',
 ];
 
 function showToast(message) {
@@ -42,8 +45,11 @@ function goToStep(n) {
     steps.forEach((id, i) => {
         document.getElementById(id).classList.toggle('d-none', i !== n - 1);
     });
-    if (n <= 4) {
-        document.getElementById('stepProgress').style.width = `${n * 25}%`;
+    // Derivado de stepLabels.length, não cravado: o 4 e o 25 anteriores eram
+    // a mesma informação escrita duas vezes, e ambos ficavam errados assim
+    // que uma etapa era acrescentada.
+    if (n <= stepLabels.length) {
+        document.getElementById('stepProgress').style.width = `${(n / stepLabels.length) * 100}%`;
         document.getElementById('stepLabel').textContent = stepLabels[n - 1];
     }
 }
@@ -255,6 +261,7 @@ document.getElementById('otpForm').addEventListener('submit', async (e) => {
         if (!res.ok) throw new Error(data.detail || 'Código inválido');
 
         await loadCandidatos();
+        await loadDepartamentos();
         goToStep(3);
     } catch (err) {
         document.getElementById('otpFeedback').textContent = err.message;
@@ -376,6 +383,71 @@ document.getElementById('btnCandidatos').addEventListener('click', () => {
     goToStep(4);
 });
 
+async function loadDepartamentos() {
+    const res = await fetch('/api/survey/departamentos');
+    state.departamentos = await res.json();
+    renderDepartamentos();
+}
+
+function renderDepartamentos() {
+    const lista = document.getElementById('departamentosLista');
+    lista.innerHTML = state.departamentos.map(d => `
+        <div class="departamento-item" data-id="${d.id}">
+            <input class="form-check-input mt-0" type="checkbox" id="dep-${d.id}">
+            <label class="form-check-label flex-grow-1" for="dep-${d.id}">${escapeHtml(d.nome)}</label>
+        </div>`).join('');
+
+    lista.querySelectorAll('.departamento-item').forEach(item => {
+        const id = Number(item.dataset.id);
+        const check = item.querySelector('input');
+        item.addEventListener('click', (e) => {
+            if (e.target !== check) check.checked = !check.checked;
+            item.classList.toggle('selected', check.checked);
+            if (check.checked) {
+                state.selectedDepartamentoIds.add(id);
+            } else {
+                state.selectedDepartamentoIds.delete(id);
+            }
+            updateDepartamentosUI();
+        });
+    });
+}
+
+function updateDepartamentosUI() {
+    document.getElementById('departamentosCount').textContent =
+        state.selectedDepartamentoIds.size;
+
+    // "Outros" é reconhecido pelo nome só no cliente, para revelar o campo.
+    // A obrigatoriedade de verdade é do servidor, que usa a coluna
+    // exige_texto — se o nome mudar, o pior caso aqui é o campo não
+    // aparecer e o backend recusar com a mensagem correta.
+    const outros = state.departamentos.find(d => d.nome === 'Outros');
+    const marcado = outros && state.selectedDepartamentoIds.has(outros.id);
+    document.getElementById('departamentoOutrosWrap').classList.toggle('d-none', !marcado);
+}
+
+document.getElementById('departamentosBusca').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.departamento-item').forEach(item => {
+        const nome = item.querySelector('label').textContent.toLowerCase();
+        item.classList.toggle('d-none', !nome.includes(q));
+    });
+});
+
+document.getElementById('btnDepartamentos').addEventListener('click', () => {
+    if (state.selectedDepartamentoIds.size === 0) {
+        showToast('Marque ao menos uma modalidade');
+        return;
+    }
+    const wrap = document.getElementById('departamentoOutrosWrap');
+    const texto = document.getElementById('departamentoOutros').value.trim();
+    if (!wrap.classList.contains('d-none') && !texto) {
+        showToast('Descreva qual modalidade em Outros');
+        return;
+    }
+    goToStep(5);
+});
+
 document.getElementById('lgpdCheck').addEventListener('change', (e) => {
     document.getElementById('btnSubmit').disabled = !e.target.checked;
 });
@@ -405,13 +477,17 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
                 candidatos_ids: Array.from(state.selectedIds),
                 candidato_preferido_id: parseInt(document.getElementById('preferido').value),
                 aceite_lgpd: lgpdChecked,
+                departamentos_ids: [...state.selectedDepartamentoIds],
+                departamento_outros: document.getElementById('departamentoOutros').value.trim(),
             }),
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail);
 
-        goToStep(5);
+        // steps agora tem 6 posições (…, step5, stepThanks); stepThanks é a
+        // sexta, não mais a quinta.
+        goToStep(6);
     } catch (err) {
         showToast(err.message);
         btn.disabled = false;

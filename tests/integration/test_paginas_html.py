@@ -18,7 +18,9 @@ class TestPaginaPublica:
         assert "text/html" in res.headers["content-type"]
 
     async def test_index_tem_as_quatro_etapas(self, client):
-        """O fluxo é cadastro -> OTP -> candidatos -> LGPD."""
+        """As quatro primeiras etapas: cadastro -> OTP -> candidatos ->
+        modalidades. A quinta (LGPD) e o agradecimento são cobertos pelos
+        testes abaixo."""
         html = (await client.get("/")).text
         for step in ("step1", "step2", "step3", "step4"):
             assert f'id="{step}"' in html
@@ -42,6 +44,19 @@ class TestPaginaPublica:
         html = (await client.get("/")).text
         assert 'id="numeroSocio"' in html
         assert 'maxlength="4"' in html
+
+    async def test_index_tem_a_etapa_de_modalidades(self, client):
+        """A etapa entrou entre candidatos e LGPD; se sumir do template, o
+        fluxo quebra com 422 no submit e só apareceria em produção."""
+        html = (await client.get("/")).text
+        assert 'id="departamentosLista"' in html
+        assert 'id="departamentosBusca"' in html
+        assert 'id="departamentoOutros"' in html
+
+    async def test_lgpd_virou_a_quinta_etapa(self, client):
+        html = (await client.get("/")).text
+        assert 'id="step5"' in html
+        assert "Etapa 1 de 5" in html
 
 
 class TestPaginaAdmin:

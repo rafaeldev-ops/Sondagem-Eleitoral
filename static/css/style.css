@@ -49,11 +49,11 @@ body {
 .step-progress .progress-bar {
     background: #fff;
     transition: width 0.3s ease;
-    /* Estado inicial: etapa 1 de 4. O app.js atualiza daqui em diante
+    /* Estado inicial: etapa 1 de 5. O app.js atualiza daqui em diante
        via element.style.width, que é CSSOM e não é afetado pela CSP —
        'unsafe-inline' governa o atributo style= do HTML, não atribuição
        de propriedade por script. */
-    width: 25%;
+    width: 20%;
 }
 
 /* Largura máxima dos cartões de cada etapa do fluxo público. */
@@ -171,4 +171,31 @@ body {
         height: 50px;
         font-size: 1.25rem;
     }
+}
+
+/* Lista de modalidades: 49 itens numa tela de celular precisam de rolagem
+   própria, senão a página inteira vira uma rolagem de vários metros. */
+.departamentos-lista {
+    max-height: 320px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #dfe3e8;
+    border-radius: 8px;
+}
+
+.departamento-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef0f3;
+    cursor: pointer;
+}
+
+.departamento-item:last-child {
+    border-bottom: 0;
+}
+
+.departamento-item.selected {
+    background: #fff5f5;
 }
