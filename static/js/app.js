@@ -6,6 +6,9 @@ const state = {
     telefone: null,
     candidatos: [],
     selectedIds: new Set(),
+    // Ponto focal: um só, então é um id e não um Set. null = ainda não
+    // escolhido, que é o estado com que a etapa 4 começa.
+    preferidoId: null,
     resendInterval: null,
     departamentos: [],
     selectedDepartamentoIds: new Set(),
@@ -47,13 +50,14 @@ function corDoAvatar(id) {
     return `c${Math.abs(Number(id) || 0) % AVATAR_CORES}`;
 }
 
-const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'stepThanks'];
+const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6', 'stepThanks'];
 const stepLabels = [
-    'Etapa 1 de 5 — Cadastro',
-    'Etapa 2 de 5 — Verificação',
-    'Etapa 3 de 5 — Candidatos',
-    'Etapa 4 de 5 — Modalidades',
-    'Etapa 5 de 5 — Consentimento',
+    'Etapa 1 de 6 — Cadastro',
+    'Etapa 2 de 6 — Verificação',
+    'Etapa 3 de 6 — Candidatos',
+    'Etapa 4 de 6 — Ponto focal',
+    'Etapa 5 de 6 — Modalidades',
+    'Etapa 6 de 6 — Consentimento',
 ];
 
 function showToast(message) {
@@ -364,9 +368,7 @@ async function loadCandidatos() {
     document.getElementById('maxCandidatos').textContent = MAX_CANDIDATOS;
 
     const grid = document.getElementById('candidatosGrid');
-    const preferido = document.getElementById('preferido');
     grid.innerHTML = '';
-    preferido.innerHTML = '<option value="">Selecione um candidato...</option>';
 
     state.candidatos.forEach(c => {
         const nome = escapeHtml(c.nome);
@@ -386,11 +388,6 @@ async function loadCandidatos() {
             </div>
             <input class="form-check-input" type="checkbox" id="cand-${c.id}" value="${c.id}" aria-label="Selecionar ${nome}">`;
         grid.appendChild(card);
-
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.nome} (${c.apelido})`;
-        preferido.appendChild(opt);
     });
 
     grid.querySelectorAll('.candidato-card').forEach(card => {
@@ -421,7 +418,6 @@ async function loadCandidatos() {
                 card.classList.remove('selected');
             }
             updateCandidatosCount();
-            updatePreferidoOptions();
         });
     });
 
@@ -436,15 +432,80 @@ function updateCandidatosCount() {
     document.getElementById('candidatosCount').textContent = state.selectedIds.size;
 }
 
-function updatePreferidoOptions() {
-    const preferido = document.getElementById('preferido');
-    Array.from(preferido.options).forEach(opt => {
-        if (!opt.value) return;
-        opt.disabled = !state.selectedIds.has(parseInt(opt.value));
-    });
-    if (preferido.value && !state.selectedIds.has(parseInt(preferido.value))) {
-        preferido.value = '';
+// Etapa 4: os mesmos cartões da etapa 3, só que com escolha única e
+// listando APENAS quem foi marcado antes. Oferecer a lista inteira deixaria
+// escolher alguém em quem a pessoa não votou — o backend recusa isso ("o
+// candidato preferencial deve estar entre os selecionados"), o que viraria
+// erro no fim do fluxo em vez de opção que nunca aparece.
+//
+// O controle é checkbox, igual ao da etapa 3, mas a escolha é ÚNICA: marcar
+// um desmarca o outro. O navegador não faz isso sozinho com checkbox (é o
+// que o radio daria de graça), então a exclusividade é imposta aqui no
+// handler de change — que dispara tanto pelo toque quanto pelo teclado
+// (Tab + Espaço), fechando os dois caminhos.
+//
+// Marcar o que já estava marcado desmarca e zera a escolha, em vez de
+// travar em "sempre há um selecionado": o botão CONTINUAR cobra a escolha,
+// então dá para desfazer sem ficar preso.
+function renderFocal() {
+    const lista = document.getElementById('focalLista');
+
+    // Reconstruído a cada entrada na etapa: dá para voltar e mudar a
+    // seleção da etapa 3, e a lista precisa acompanhar. Como innerHTML
+    // descarta os elementos antigos junto com os listeners, não há acúmulo.
+    lista.innerHTML = '';
+
+    const escolhidos = state.candidatos.filter(c => state.selectedIds.has(c.id));
+
+    // Se o ponto focal escolhido antes foi desmarcado na etapa 3, ele deixa
+    // de ser uma opção válida e a escolha precisa ser refeita.
+    if (state.preferidoId !== null && !state.selectedIds.has(state.preferidoId)) {
+        state.preferidoId = null;
     }
+
+    escolhidos.forEach(c => {
+        const nome = escapeHtml(c.nome);
+        const apelido = escapeHtml(c.apelido);
+        const foto = escapeHtml(c.foto);
+        const marcado = state.preferidoId === c.id;
+
+        const card = document.createElement('div');
+        card.className = marcado ? 'candidato-card selected' : 'candidato-card';
+        card.dataset.id = c.id;
+        card.innerHTML = `
+            ${c.foto
+                ? `<img class="candidato-avatar" src="${foto}" alt="${nome}" loading="lazy">`
+                : `<div class="candidato-avatar-placeholder ${corDoAvatar(c.id)}" aria-hidden="true">${escapeHtml(iniciais(c.nome))}</div>`}
+            <div class="candidato-info">
+                <div class="candidato-nome">${nome}</div>
+                <div class="candidato-apelido">${apelido}</div>
+            </div>
+            <input class="form-check-input" type="checkbox" id="focal-${c.id}" value="${c.id}" aria-label="Escolher ${nome} como ponto focal"${marcado ? ' checked' : ''}>`;
+        lista.appendChild(card);
+    });
+
+    lista.querySelectorAll('.candidato-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            const cb = card.querySelector('input[type=checkbox]');
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change'));
+        });
+    });
+
+    lista.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+            state.preferidoId = cb.checked ? parseInt(cb.value) : null;
+            // Uma passada só resolve os dois efeitos da escolha única:
+            // desmarca todos os outros checkboxes (o navegador não faz isso
+            // entre checkboxes) e acerta o destaque de cada cartão.
+            lista.querySelectorAll('.candidato-card').forEach(outro => {
+                const ehOEscolhido = Number(outro.dataset.id) === state.preferidoId;
+                outro.querySelector('input[type=checkbox]').checked = ehOEscolhido;
+                outro.classList.toggle('selected', ehOEscolhido);
+            });
+        });
+    });
 }
 
 document.getElementById('btnCandidatos').addEventListener('click', () => {
@@ -452,12 +513,16 @@ document.getElementById('btnCandidatos').addEventListener('click', () => {
         showToast('Selecione ao menos um candidato');
         return;
     }
-    const preferido = document.getElementById('preferido').value;
-    if (!preferido) {
-        showToast('Selecione o candidato preferencial');
+    renderFocal();
+    goToStep(4);
+});
+
+document.getElementById('btnFocal').addEventListener('click', () => {
+    if (state.preferidoId === null) {
+        showToast('Escolha quem será seu ponto focal no grupo');
         return;
     }
-    goToStep(4);
+    goToStep(5);
 });
 
 async function loadDepartamentos() {
@@ -539,7 +604,7 @@ document.getElementById('btnDepartamentos').addEventListener('click', () => {
         showToast('Descreva qual modalidade em Outros');
         return;
     }
-    goToStep(5);
+    goToStep(6);
 });
 
 document.getElementById('lgpdCheck').addEventListener('change', (e) => {
@@ -569,7 +634,7 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
             body: JSON.stringify({
                 session_token: state.sessionToken,
                 candidatos_ids: Array.from(state.selectedIds),
-                candidato_preferido_id: parseInt(document.getElementById('preferido').value),
+                candidato_preferido_id: state.preferidoId,
                 aceite_lgpd: lgpdChecked,
                 departamentos_ids: [...state.selectedDepartamentoIds],
                 departamento_outros: document.getElementById('departamentoOutros').value.trim(),
@@ -579,9 +644,9 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail);
 
-        // steps agora tem 6 posições (…, step5, stepThanks); stepThanks é a
-        // sexta, não mais a quinta.
-        goToStep(6);
+        // steps tem 7 posições (…, step6, stepThanks) desde que o ponto
+        // focal virou etapa própria; stepThanks é a sétima.
+        goToStep(7);
     } catch (err) {
         showToast(err.message);
         btn.disabled = false;

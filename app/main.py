@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -45,6 +46,37 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # exist_ok=True torna a chamada idempotente a cada import.
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 (BASE_DIR / "static" / "uploads" / "candidatos").mkdir(parents=True, exist_ok=True)
+
+
+def _calcular_asset_version() -> str:
+    """
+    Impressão digital do CSS e do JS servidos, para entrar como `?v=` nos
+    links dos templates.
+
+    Sem isto, o navegador reaproveita o arquivo em cache e mistura HTML novo
+    com script velho — que é bem pior do que só ficar com o visual antigo.
+    O app.js anterior procurava `<select id="preferido">`; num HTML onde esse
+    elemento não existe mais, a busca devolve null, o acesso estoura
+    TypeError no topo do arquivo e NENHUM handler chega a ser registrado.
+    A página carrega bonita e nenhum botão funciona. Foi exatamente assim
+    que os botões novos de exportação do admin pareceram "não funcionar".
+
+    Usa tamanho + mtime em vez do conteúdo: não precisa ler os arquivos, e
+    qualquer edição muda pelo menos um dos dois. Calculado uma vez no import
+    — dentro de um mesmo processo os estáticos não mudam, e no Docker a
+    imagem é reconstruída a cada deploy de qualquer forma.
+    """
+    marcas = []
+    for caminho in sorted((BASE_DIR / "static").rglob("*")):
+        # uploads/ é conteúdo enviado pelo admin, não asset da aplicação:
+        # incluir invalidaria o cache de todo mundo a cada foto nova.
+        if caminho.is_file() and "uploads" not in caminho.parts:
+            st = caminho.stat()
+            marcas.append(f"{caminho.name}:{st.st_size}:{int(st.st_mtime)}")
+    return hashlib.sha256("|".join(marcas).encode()).hexdigest()[:12]
+
+
+ASSET_VERSION = _calcular_asset_version()
 
 
 @asynccontextmanager
@@ -110,6 +142,7 @@ async def index(request: Request) -> HTMLResponse:
         {
             "recaptcha_site_key": settings.recaptcha_site_key,
             "app_name": settings.app_name,
+            "asset_version": ASSET_VERSION,
         },
     )
 
@@ -119,5 +152,5 @@ async def admin_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "admin.html",
-        {"app_name": settings.app_name},
+        {"app_name": settings.app_name, "asset_version": ASSET_VERSION},
     )

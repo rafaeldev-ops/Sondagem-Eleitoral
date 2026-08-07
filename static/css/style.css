@@ -213,6 +213,9 @@ body {
 /* ============================== Tipografia ============================== */
 
 .section-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
     font-size: 1.36rem;
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -568,21 +571,20 @@ body {
 
 /* ============================== Ponto focal ============================== */
 
-.focal-field {
-    border-top: 1px solid var(--line);
-    padding-top: 20px;
-    margin-top: 22px;
-}
+/* A etapa reaproveita .candidato-card inteiro — mesmo cartão, mesmo avatar,
+   mesmo checkbox redondo da etapa 3. A escolha única não é diferença de
+   desenho: é o app.js que desmarca os outros a cada mudança. */
 
 .focal-icon {
-    width: 17px;
-    height: 17px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     fill: none;
     stroke: var(--primary);
     stroke-width: 1.8;
     stroke-linejoin: round;
 }
+
 
 /* ============================== Modalidades ============================== */
 
@@ -640,6 +642,15 @@ body {
 .thanks {
     text-align: center;
     padding: 30px 0;
+}
+
+/* .section-title é flex (por causa do ícone da etapa de ponto focal), e
+   caixa flex não obedece text-align — o `center` herdado de .thanks vale
+   para o texto dentro de cada item, não para a posição dos itens na linha.
+   Sem isto o título do agradecimento encostava à esquerda enquanto ícone e
+   subtítulo ficavam centralizados. */
+.thanks .section-title {
+    justify-content: center;
 }
 
 .thanks-icon {

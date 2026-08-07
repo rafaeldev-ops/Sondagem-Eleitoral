@@ -199,19 +199,31 @@ document.getElementById('btnSearch').addEventListener('click', async () => {
     `).join('');
 });
 
-document.getElementById('exportCsv').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/export/csv');
-    const blob = await res.blob();
-    downloadBlob(blob, 'respostas.csv');
-});
+// Checa res.ok ANTES de baixar. Sem isso, uma sessão expirada (401) faz o
+// navegador salvar um "resultados.csv" com {"detail":"Not authenticated"}
+// dentro — o download "funciona", o arquivo está errado, e nada na tela diz
+// que houve falha. Falhar em silêncio num botão de exportação é pior do que
+// falhar alto: quem baixou acha que tem os dados.
+async function baixarExportacao(url, filename) {
+    let res;
+    try {
+        res = await fetch(url);
+    } catch {
+        alert('Não foi possível falar com o servidor. Verifique a conexão.');
+        return;
+    }
 
-document.getElementById('exportExcel').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/export/excel');
-    const blob = await res.blob();
-    downloadBlob(blob, 'respostas.xlsx');
-});
+    if (!res.ok) {
+        alert(
+            res.status === 401 || res.status === 403
+                ? 'Sua sessão expirou. Entre novamente para exportar.'
+                : `Falha ao exportar (HTTP ${res.status}).`
+        );
+        return;
+    }
+
+    downloadBlob(await res.blob(), filename);
+}
 
 function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -222,16 +234,16 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
-document.getElementById('exportResultadosCsv').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/export/resultados/csv');
-    const blob = await res.blob();
-    downloadBlob(blob, 'resultados.csv');
-});
+const EXPORTACOES = [
+    ['exportCsv', '/api/admin/export/csv', 'respostas.csv'],
+    ['exportExcel', '/api/admin/export/excel', 'respostas.xlsx'],
+    ['exportResultadosCsv', '/api/admin/export/resultados/csv', 'resultados.csv'],
+    ['exportResultadosExcel', '/api/admin/export/resultados/excel', 'resultados.xlsx'],
+];
 
-document.getElementById('exportResultadosExcel').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/export/resultados/excel');
-    const blob = await res.blob();
-    downloadBlob(blob, 'resultados.xlsx');
+EXPORTACOES.forEach(([id, url, filename]) => {
+    document.getElementById(id).addEventListener('click', (e) => {
+        e.preventDefault();
+        baixarExportacao(url, filename);
+    });
 });
