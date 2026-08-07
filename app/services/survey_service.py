@@ -273,6 +273,14 @@ class SurveyService:
         candidatos_nomes = [candidato_map[cid].nome for cid in candidatos_ids]
         preferido_nome = candidato_map[candidato_preferido_id].nome
 
+        departamentos_nomes = [
+            d.nome
+            for d in sorted(
+                (departamento_map[did] for did in departamentos_ids),
+                key=lambda d: d.ordem,
+            )
+        ]
+
         payload = WebhookPayload(
             nome=associado.nome,
             numero_socio=associado.numero_socio,
@@ -280,6 +288,8 @@ class SurveyService:
             telefone=associado.telefone,
             candidatos=candidatos_nomes,
             preferido=preferido_nome,
+            departamentos=departamentos_nomes,
+            departamento_outros=associado.departamento_outros or "",
             aceite_lgpd=aceite_lgpd,
             data=associado.data_resposta.isoformat(),
         )
@@ -349,12 +359,28 @@ class ExportService:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["ID", "Nº Sócio", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"]
+            [
+                "ID",
+                "Nº Sócio",
+                "Nome",
+                "CPF",
+                "Telefone",
+                "Candidatos",
+                "Preferido",
+                "Modalidades",
+                "Outros (descrição)",
+                "Data",
+                "LGPD",
+            ]
         )
 
         for a in associados:
             candidatos = ", ".join(r.candidato.nome for r in a.respostas)
             preferido = a.preferencia.candidato_preferido.nome if a.preferencia else ""
+            modalidades = ", ".join(
+                ad.departamento.nome
+                for ad in sorted(a.departamentos, key=lambda x: x.departamento.ordem)
+            )
             writer.writerow(
                 [
                     a.id,
@@ -364,6 +390,8 @@ class ExportService:
                     a.telefone,
                     candidatos,
                     preferido,
+                    modalidades,
+                    a.departamento_outros or "",
                     a.data_resposta.isoformat(),
                     "Sim" if a.aceite_lgpd else "Não",
                 ]
@@ -377,12 +405,28 @@ class ExportService:
         ws = wb.active
         ws.title = "Respostas"
         ws.append(
-            ["ID", "Nº Sócio", "Nome", "CPF", "Telefone", "Candidatos", "Preferido", "Data", "LGPD"]
+            [
+                "ID",
+                "Nº Sócio",
+                "Nome",
+                "CPF",
+                "Telefone",
+                "Candidatos",
+                "Preferido",
+                "Modalidades",
+                "Outros (descrição)",
+                "Data",
+                "LGPD",
+            ]
         )
 
         for a in associados:
             candidatos = ", ".join(r.candidato.nome for r in a.respostas)
             preferido = a.preferencia.candidato_preferido.nome if a.preferencia else ""
+            modalidades = ", ".join(
+                ad.departamento.nome
+                for ad in sorted(a.departamentos, key=lambda x: x.departamento.ordem)
+            )
             ws.append(
                 [
                     a.id,
@@ -392,6 +436,8 @@ class ExportService:
                     a.telefone,
                     candidatos,
                     preferido,
+                    modalidades,
+                    a.departamento_outros or "",
                     a.data_resposta.isoformat(),
                     "Sim" if a.aceite_lgpd else "Não",
                 ]

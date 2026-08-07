@@ -37,8 +37,10 @@ WEBHOOK_RETRY_DELAY_SECONDS=60
   "telefone": "11988887777",
   "candidatos": ["Candidato A", "Candidato B"],
   "preferido": "Candidato A",
+  "departamentos": ["Natação", "Sauna", "Outros"],
+  "departamento_outros": "Xadrez",
   "aceite_lgpd": true,
-  "data": "2026-08-06T14:32:10.123456+00:00"
+  "data": "2026-08-07T14:32:10.123456+00:00"
 }
 ```
 
@@ -50,8 +52,13 @@ WEBHOOK_RETRY_DELAY_SECONDS=60
 | telefone | string | Celular normalizado |
 | candidatos | string[] | Nomes dos candidatos selecionados |
 | preferido | string | Nome do candidato preferencial |
+| departamentos | string[] | Nomes das modalidades/departamentos frequentados, na ordem cadastrada |
+| departamento_outros | string | Descrição livre quando "Outros" está entre os selecionados |
 | aceite_lgpd | boolean | Consentimento LGPD |
 | data | string | ISO 8601 da resposta |
+
+`departamento_outros` vem como string vazia quando o sócio não marcou
+"Outros" — nunca `null`.
 
 ## Configurar o Workflow no n8n
 

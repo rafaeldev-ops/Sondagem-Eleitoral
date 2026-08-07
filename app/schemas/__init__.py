@@ -181,5 +181,9 @@ class WebhookPayload(BaseModel):
     telefone: str
     candidatos: list[str]
     preferido: str
+    departamentos: list[str]
+    # String vazia quando não se aplica, nunca None: o n8n trata campo
+    # ausente e campo nulo de formas diferentes.
+    departamento_outros: str
     aceite_lgpd: bool
     data: str

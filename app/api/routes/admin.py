@@ -192,6 +192,11 @@ async def search_cpf(
             "cpf": a.cpf,
             "numero_socio": a.numero_socio,
             "telefone": a.telefone,
+            "departamentos": [
+                ad.departamento.nome
+                for ad in sorted(a.departamentos, key=lambda x: x.departamento.ordem)
+            ],
+            "departamento_outros": a.departamento_outros or "",
             "data_resposta": a.data_resposta.isoformat(),
             "candidatos": [r.candidato.nome for r in a.respostas],
             "preferido": a.preferencia.candidato_preferido.nome if a.preferencia else None,

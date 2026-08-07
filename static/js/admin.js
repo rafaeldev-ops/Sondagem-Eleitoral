@@ -192,6 +192,7 @@ document.getElementById('btnSearch').addEventListener('click', async () => {
                 <strong>${escapeHtml(r.nome)}</strong> — Sócio: ${escapeHtml(r.numero_socio)} — CPF: ${escapeHtml(r.cpf)}<br>
                 <small class="text-muted">${escapeHtml(r.data_resposta)}</small><br>
                 Candidatos: ${escapeHtml(r.candidatos.join(', '))}<br>
+                Modalidades: ${escapeHtml(r.departamentos.join(', ') || '-')}${r.departamento_outros ? ` (${escapeHtml(r.departamento_outros)})` : ''}<br>
                 Preferido: ${escapeHtml(r.preferido || '-')}
             </div>
         </div>

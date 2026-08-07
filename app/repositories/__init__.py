@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     Associado,
+    AssociadoDepartamento,
     AuditLog,
     Candidato,
     Departamento,
@@ -50,6 +51,9 @@ class AssociadoRepository:
             .options(
                 selectinload(Associado.respostas).selectinload(Resposta.candidato),
                 selectinload(Associado.preferencia).selectinload(Preferencia.candidato_preferido),
+                selectinload(Associado.departamentos).selectinload(
+                    AssociadoDepartamento.departamento
+                ),
             )
             .order_by(Associado.data_resposta.desc())
         )
@@ -61,6 +65,9 @@ class AssociadoRepository:
             .options(
                 selectinload(Associado.respostas).selectinload(Resposta.candidato),
                 selectinload(Associado.preferencia).selectinload(Preferencia.candidato_preferido),
+                selectinload(Associado.departamentos).selectinload(
+                    AssociadoDepartamento.departamento
+                ),
             )
             .order_by(Associado.data_resposta.desc())
         )
