@@ -46,7 +46,8 @@ uvicorn app.main:app --reload
 1. **Cadastro** — Nome, CPF (validação em tempo real), celular
 2. **OTP** — Código de 6 dígitos via SMS (Twilio/Zenvia/Z-API)
 3. **Candidatos** — Seleção múltipla + preferencial
-4. **LGPD** — Consentimento obrigatório
+4. **Modalidades** - Departamentos/modalidades que o sócio frequenta
+6. **LGPD** — Consentimento obrigatório
 
 ## Segurança
 
