@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     database_url_sync: str = Field(alias="DATABASE_URL_SYNC")
     redis_url: str = Field(alias="REDIS_URL")
 
-    otp_provider: Literal["twilio", "zenvia", "zapi", "mock"] = Field(
+    otp_provider: Literal["twilio", "zenvia", "zapi", "vonage", "mock"] = Field(
         default="mock",
         alias="OTP_PROVIDER",
     )
@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     zapi_instance_id: str = Field(default="", alias="ZAPI_INSTANCE_ID")
     zapi_token: str = Field(default="", alias="ZAPI_TOKEN")
     zapi_client_token: str = Field(default="", alias="ZAPI_CLIENT_TOKEN")
+
+    vonage_api_key: str = Field(default="", alias="VONAGE_API_KEY")
+    vonage_api_secret: str = Field(default="", alias="VONAGE_API_SECRET")
+    vonage_from: str = Field(default="SEMPRE TRICOLOR", alias="VONAGE_FROM")
 
     recaptcha_secret_key: str = Field(default="", alias="RECAPTCHA_SECRET_KEY")
     recaptcha_site_key: str = Field(default="", alias="RECAPTCHA_SITE_KEY")

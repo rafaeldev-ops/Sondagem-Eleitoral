@@ -107,12 +107,62 @@ class ZAPIOTPProvider(OTPProvider):
             return False
 
 
+class VonageOTPProvider(OTPProvider):
+    """
+    Ao contrário dos outros providers daqui, o status HTTP não basta: a Vonage
+    responde 200 mesmo quando não envia a mensagem, e o resultado real vem no
+    corpo, em `messages[0].status` ("0" = enviado, qualquer outro valor é
+    recusa). Sem ler o corpo, uma conta sem crédito — ou o sender alfanumérico
+    recusado pela operadora brasileira — seria registrada como envio bem
+    sucedido, e o associado ficaria esperando um SMS que nunca saiu.
+    """
+
+    async def send_otp(self, phone: str, code: str) -> bool:
+        settings = get_settings()
+        url = "https://rest.nexmo.com/sms/json"
+        payload = {
+            "api_key": settings.vonage_api_key,
+            "api_secret": settings.vonage_api_secret,
+            "to": f"55{phone}",
+            "from": settings.vonage_from,
+            "text": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, data=payload)
+                response.raise_for_status()
+                corpo = response.json()
+        except Exception as exc:
+            logger.exception("Erro ao enviar OTP via Vonage: %s", exc)
+            return False
+
+        try:
+            mensagem = corpo["messages"][0]
+            status = mensagem["status"]
+        except (KeyError, IndexError, TypeError):
+            logger.error("Resposta da Vonage em formato inesperado: %s", corpo)
+            return False
+
+        if status != "0":
+            logger.error(
+                "Vonage recusou o envio para %s: status=%s (%s)",
+                phone,
+                status,
+                mensagem.get("error-text", "sem detalhe"),
+            )
+            return False
+
+        logger.info("Vonage OTP enviado para %s", phone)
+        return True
+
+
 def get_otp_provider() -> OTPProvider:
     settings = get_settings()
     providers: dict[str, OTPProvider] = {
         "twilio": TwilioOTPProvider(),
         "zenvia": ZenviaOTPProvider(),
         "zapi": ZAPIOTPProvider(),
+        "vonage": VonageOTPProvider(),
         "mock": MockOTPProvider(),
     }
     return providers.get(settings.otp_provider, MockOTPProvider())
