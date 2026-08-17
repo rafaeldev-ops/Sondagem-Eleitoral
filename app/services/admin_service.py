@@ -90,7 +90,13 @@ class AdminService:
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValueError("Formato de imagem não permitido")
 
-        upload_dir = Path("static/uploads/candidatos")
+        # UPLOAD_DIR, e não `static/`: `static/` vem da imagem, então gravar
+        # lá deixa a foto na camada de escrita do container e o próximo
+        # `--build`/`--force-recreate` a descarta. O UPLOAD_DIR é o caminho
+        # que o docker-compose monta em disco (`./uploads:/app/uploads`) e o
+        # mesmo que app/main.py publica no mount `/uploads` — por isso a URL
+        # devolvida abaixo tem esse prefixo.
+        upload_dir = Path(self.settings.upload_dir)
         upload_dir.mkdir(parents=True, exist_ok=True)
 
         filename = f"{uuid.uuid4().hex}{ext}"
@@ -106,7 +112,7 @@ class AdminService:
         with open(filepath, "wb") as f:
             f.write(content)
 
-        return f"/static/uploads/candidatos/{filename}"
+        return f"/uploads/{filename}"
 
     @staticmethod
     def _validate_magic_bytes(content: bytes, ext: str) -> None:

@@ -45,7 +45,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # parents=True cobre UPLOAD_DIR apontando para caminho aninhado;
 # exist_ok=True torna a chamada idempotente a cada import.
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-(BASE_DIR / "static" / "uploads" / "candidatos").mkdir(parents=True, exist_ok=True)
 
 
 def _calcular_asset_version() -> str:

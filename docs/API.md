@@ -93,7 +93,7 @@ Lista candidatos ativos.
     "id": 1,
     "nome": "Maria Santos",
     "apelido": "Mari",
-    "foto": "/static/uploads/candidatos/abc.jpg"
+    "foto": "/uploads/abc.jpg"
   }
 ]
 ```
