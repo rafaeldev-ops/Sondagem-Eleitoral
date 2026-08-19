@@ -126,6 +126,12 @@ class VonageOTPProvider(OTPProvider):
             "to": f"55{phone}",
             "from": settings.vonage_from,
             "text": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+            # Sem isto a Vonage manda em GSM-7, que não tem "ó", "çã" nem "á"
+            # no alfabeto básico — cada um vira "?" na tela do associado
+            # ("c?digo", "verifica??o", "V?lido"). A mensagem tem ~60
+            # caracteres, dentro do limite de 70 de um único segmento em
+            # UCS-2, então não parte em duas mensagens.
+            "type": "unicode",
         }
         try:
             async with httpx.AsyncClient(timeout=30) as client:
