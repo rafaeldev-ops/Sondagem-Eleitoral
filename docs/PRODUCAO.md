@@ -242,6 +242,7 @@ docker compose logs app | tail -50
 | `defina POSTGRES_PASSWORD no .env` | variável faltando | preencha o `.env` |
 | `Connection refused` porta 5432 | banco não subiu | `docker compose ps`, veja logs do `db` |
 | `relation "..." does not exist` | migrations não aplicadas | `alembic upgrade head` |
+| `PermissionError: [Errno 13] Permission denied: 'uploads/candidatos'` (container reinicia em loop) | `uploads/` pertence a quem clonou o repo, mas o container roda como uid 999 | `sudo chown -R 999:999 uploads` no host, depois `docker compose up -d --force-recreate app` |
 
 ### Ninguém recebe o código OTP
 

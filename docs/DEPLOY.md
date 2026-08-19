@@ -26,8 +26,19 @@ Testado e compatível com:
 
 ```bash
 # Ubuntu 22.04+
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-sudo usermod -aG docker $USER
+# docker-compose-plugin NÃO está no repositório padrão do Ubuntu — testado
+# em 24.04 e "apt install docker.io docker-compose-plugin" falha com
+# "Unable to locate package docker-compose-plugin". Precisa do repositório
+# oficial do Docker:
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nginx certbot python3-certbot-nginx ufw
+sudo usermod -aG docker $USER   # relogue (ou "newgrp docker") para valer
+
+sudo ufw allow OpenSSH && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw --force enable
 ```
 
 ### 2. Clone e configure
@@ -37,6 +48,13 @@ git clone <repo> /opt/sondagem-clube
 cd /opt/sondagem-clube
 cp .env.example .env
 nano .env  # Configure todas as variáveis
+
+# O container "app" roda como usuário não-root (uid 999, ver Dockerfile).
+# uploads/ acabou de ser criado pelo "git clone" e pertence a quem clonou
+# — o container não consegue escrever nele e cai num loop de restart com
+# "PermissionError: [Errno 13] Permission denied: 'uploads/candidatos'".
+# Alinhe o dono ANTES do primeiro "docker compose up":
+sudo chown -R 999:999 uploads
 ```
 
 ### 3. Suba
@@ -44,6 +62,20 @@ nano .env  # Configure todas as variáveis
 ```bash
 docker compose up -d --build
 docker compose exec app alembic upgrade head
+```
+
+### 4. Nginx + TLS
+
+```bash
+sudo cp deploy/nginx/sempretricolor.org.conf /etc/nginx/sites-available/sondagem
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/sondagem /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx && sudo systemctl enable nginx
+
+# Só depois que o DNS já apontar para este servidor (senão a validação do
+# domínio falha):
+sudo certbot --nginx -d seu-dominio -d www.seu-dominio \
+  --non-interactive --agree-tos -m seu-email@exemplo.com
 ```
 
 ### 4. Reverse Proxy (Nginx)
