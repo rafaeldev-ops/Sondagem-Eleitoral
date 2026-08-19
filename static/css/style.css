@@ -79,14 +79,17 @@ body {
     color: rgba(255, 255, 255, 0.88);
 }
 
-.brand-icon {
-    width: 15px;
-    height: 15px;
+/* Fundo branco atrás da logo: o vermelho dela (quase o mesmo tom do
+   cabeçalho) some sem esse contraste — ver preview antes de mexer aqui. */
+.brand-logo {
+    width: 46px;
+    height: 46px;
     flex-shrink: 0;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linejoin: round;
+    padding: 5px;
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    object-fit: contain;
     /* Compensa o tracking da linha: sem isso o ícone parece colado no S. */
     margin-right: 2px;
 }
