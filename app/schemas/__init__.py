@@ -99,14 +99,10 @@ class VotoRequest(BaseModel):
     # opções da lista e existe só para recusar payload absurdo.
     departamentos_ids: list[int] = Field(min_length=1, max_length=49)
     departamento_outros: str = Field(default="", max_length=100)
+    # Opt-in de contato, não condição para participar da sondagem: desmarcado
+    # é a resposta "não quero receber notícias", do mesmo jeito que o
+    # checkbox "titular" trata desmarcado como resposta e não omissão.
     aceite_lgpd: bool
-
-    @field_validator("aceite_lgpd")
-    @classmethod
-    def validate_lgpd(cls, value: bool) -> bool:
-        if not value:
-            raise ValueError("É necessário aceitar os termos da LGPD")
-        return value
 
     @field_validator("departamento_outros")
     @classmethod

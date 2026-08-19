@@ -75,6 +75,12 @@ class SurveyService:
             return False, "Este número de sócio já participou da sondagem"
         return True, None
 
+    async def check_telefone_available(self, telefone: str) -> tuple[bool, str | None]:
+        existing = await self.associado_repo.get_by_telefone(telefone)
+        if existing:
+            return False, "Este telefone já participou da sondagem"
+        return True, None
+
     async def register_and_send_otp(
         self,
         nome: str,
@@ -92,6 +98,10 @@ class SurveyService:
         # Checado aqui, e não só no submit, para não gastar um SMS num
         # cadastro que seria rejeitado no fim do fluxo.
         available, msg = await self.check_numero_socio_available(numero_socio)
+        if not available:
+            return None, msg
+
+        available, msg = await self.check_telefone_available(telefone)
         if not available:
             return None, msg
 
@@ -189,6 +199,10 @@ class SurveyService:
             return False, msg
 
         available, msg = await self.check_numero_socio_available(numero_socio)
+        if not available:
+            return False, msg
+
+        available, msg = await self.check_telefone_available(session["telefone"])
         if not available:
             return False, msg
 

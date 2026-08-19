@@ -1,5 +1,5 @@
 """
-O checkbox "sou titular do grupo" da etapa 1.
+O checkbox "sou titular do título" da etapa 1.
 
 O campo tem três estados que precisam continuar distinguíveis ponta a ponta:
 True (declarou que é titular), False (declarou que não é) e NULL (respondeu
@@ -204,4 +204,4 @@ class TestPaginaPublica:
         sem `titular` e o fluxo inteiro quebra com 422 já na primeira etapa."""
         html = (await client.get("/")).text
         assert 'id="titular"' in html
-        assert "Sou titular do grupo" in html
+        assert "Sou titular do título" in html

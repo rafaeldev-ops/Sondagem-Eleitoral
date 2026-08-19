@@ -55,9 +55,15 @@ class TestSubmit:
         )
         assert res.status_code == 200
 
-    async def test_submit_without_lgpd_consent_rejected(
+    async def test_submit_without_lgpd_consent_accepted(
         self, client, db_session, valid_cpf, numero_socio, read_otp_code, departamentos
     ):
+        """
+        aceite_lgpd é opt-in de contato ("autorizo receber notícias"), não
+        condição para participar da sondagem — desmarcado precisa continuar
+        registrando o voto normalmente, do mesmo jeito que "titular"
+        desmarcado é uma resposta válida.
+        """
         from app.models import Candidato
 
         c1 = Candidato(nome="Fulano", apelido="Fu", ativo=True)
@@ -82,7 +88,7 @@ class TestSubmit:
                 "aceite_lgpd": False,
             },
         )
-        assert res.status_code == 422
+        assert res.status_code == 200
 
     async def test_submit_more_than_20_candidatos_rejected(
         self, client, valid_cpf, numero_socio, read_otp_code, departamentos

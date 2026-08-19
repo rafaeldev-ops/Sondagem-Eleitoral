@@ -607,23 +607,12 @@ document.getElementById('btnDepartamentos').addEventListener('click', () => {
     goToStep(6);
 });
 
-document.getElementById('lgpdCheck').addEventListener('change', (e) => {
-    document.getElementById('btnSubmit').disabled = !e.target.checked;
-});
-
 document.getElementById('btnSubmit').addEventListener('click', async () => {
     const btn = document.getElementById('btnSubmit');
+    // Opt-in de contato, não condição para participar — o botão segue sem
+    // exigir o checkbox marcado. O valor enviado ao backend é sempre o
+    // estado real do checkbox no momento do clique.
     const lgpdChecked = document.getElementById('lgpdCheck').checked;
-
-    // O botão só deveria ficar habilitado com o checkbox marcado, mas isso
-    // é uma trava de UI — não impede alguém de reativar o botão via
-    // DevTools. Por isso a checagem é repetida aqui, e o valor enviado ao
-    // backend é sempre o estado real do checkbox no momento do clique,
-    // nunca um valor fixo.
-    if (!lgpdChecked) {
-        showToast('É necessário aceitar os termos de LGPD para continuar');
-        return;
-    }
 
     btn.disabled = true;
 

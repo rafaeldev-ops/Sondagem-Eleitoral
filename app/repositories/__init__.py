@@ -12,6 +12,7 @@ from app.models import (
     Resposta,
 )
 from app.utils.cpf import normalize_cpf
+from app.utils.phone import normalize_phone
 from app.utils.socio import normalize_numero_socio
 
 
@@ -30,6 +31,12 @@ class AssociadoRepository:
             select(Associado).where(
                 Associado.numero_socio == normalize_numero_socio(numero_socio)
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_telefone(self, telefone: str) -> Associado | None:
+        result = await self.db.execute(
+            select(Associado).where(Associado.telefone == normalize_phone(telefone))
         )
         return result.scalar_one_or_none()
 
@@ -79,7 +86,7 @@ class CandidatoRepository:
 
     async def list_active(self) -> list[Candidato]:
         result = await self.db.execute(
-            select(Candidato).where(Candidato.ativo.is_(True)).order_by(Candidato.nome)
+            select(Candidato).where(Candidato.ativo.is_(True)).order_by(Candidato.apelido)
         )
         return list(result.scalars().all())
 
