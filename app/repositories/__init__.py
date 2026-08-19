@@ -35,8 +35,15 @@ class AssociadoRepository:
         return result.scalar_one_or_none()
 
     async def get_by_telefone(self, telefone: str) -> Associado | None:
+        # limit(1): telefone não tem UNIQUE constraint no banco (só checagem
+        # de aplicação — decisão consciente para não arriscar migration em
+        # produção), então já existem linhas legadas com o mesmo telefone
+        # duplicado. Sem o limit, scalar_one_or_none() estoura
+        # MultipleResultsFound assim que houver mais de uma.
         result = await self.db.execute(
-            select(Associado).where(Associado.telefone == normalize_phone(telefone))
+            select(Associado)
+            .where(Associado.telefone == normalize_phone(telefone))
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
