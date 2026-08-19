@@ -18,6 +18,7 @@ from app.core.security import (
 from app.schemas import AdminLoginRequest, AdminTokenResponse, StatsResponse
 from app.services.admin_service import AdminService
 from app.services.survey_service import ExportService
+from app.utils.datetime_br import format_datetime_br
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -195,7 +196,7 @@ async def search_cpf(
                 for ad in sorted(a.departamentos, key=lambda x: x.departamento.ordem)
             ],
             "departamento_outros": a.departamento_outros or "",
-            "data_resposta": a.data_resposta.isoformat(),
+            "data_resposta": format_datetime_br(a.data_resposta),
             "candidatos": [r.candidato.nome for r in a.respostas],
             "preferido": a.preferencia.candidato_preferido.nome if a.preferencia else None,
         }

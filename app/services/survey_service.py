@@ -22,6 +22,7 @@ from app.repositories import (
 )
 from app.services.otp_service import OTPService
 from app.utils.cpf import format_cpf
+from app.utils.datetime_br import format_datetime_br
 
 logger = logging.getLogger(__name__)
 
@@ -385,7 +386,7 @@ class ExportService:
                     preferido,
                     modalidades,
                     a.departamento_outros or "",
-                    a.data_resposta.isoformat(),
+                    format_datetime_br(a.data_resposta),
                     "Sim" if a.aceite_lgpd else "Não",
                 ]
             )
@@ -433,7 +434,7 @@ class ExportService:
                     preferido,
                     modalidades,
                     a.departamento_outros or "",
-                    a.data_resposta.isoformat(),
+                    format_datetime_br(a.data_resposta),
                     "Sim" if a.aceite_lgpd else "Não",
                 ]
             )
