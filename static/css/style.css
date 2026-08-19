@@ -544,16 +544,16 @@ body {
 }
 
 .candidato-nome {
+    font-size: 0.83rem;
+    color: var(--ink-muted);
+    line-height: 1.35;
+}
+
+.candidato-apelido {
     font-size: 1rem;
     font-weight: 700;
     color: var(--ink);
     line-height: 1.3;
-}
-
-.candidato-apelido {
-    font-size: 0.83rem;
-    color: var(--ink-muted);
-    line-height: 1.35;
 }
 
 /* Círculo, não quadrado: na referência a seleção do candidato é um alvo

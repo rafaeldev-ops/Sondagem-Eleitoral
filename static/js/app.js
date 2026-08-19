@@ -383,8 +383,8 @@ async function loadCandidatos() {
                 ? `<img class="candidato-avatar" src="${foto}" alt="${nome}" loading="lazy">`
                 : `<div class="candidato-avatar-placeholder ${corDoAvatar(c.id)}" aria-hidden="true">${escapeHtml(iniciais(c.nome))}</div>`}
             <div class="candidato-info">
-                <div class="candidato-nome">${nome}</div>
                 <div class="candidato-apelido">${apelido}</div>
+                <div class="candidato-nome">${nome}</div>
             </div>
             <input class="form-check-input" type="checkbox" id="cand-${c.id}" value="${c.id}" aria-label="Selecionar ${nome}">`;
         grid.appendChild(card);
@@ -477,8 +477,8 @@ function renderFocal() {
                 ? `<img class="candidato-avatar" src="${foto}" alt="${nome}" loading="lazy">`
                 : `<div class="candidato-avatar-placeholder ${corDoAvatar(c.id)}" aria-hidden="true">${escapeHtml(iniciais(c.nome))}</div>`}
             <div class="candidato-info">
-                <div class="candidato-nome">${nome}</div>
                 <div class="candidato-apelido">${apelido}</div>
+                <div class="candidato-nome">${nome}</div>
             </div>
             <input class="form-check-input" type="checkbox" id="focal-${c.id}" value="${c.id}" aria-label="Escolher ${nome} como ponto focal"${marcado ? ' checked' : ''}>`;
         lista.appendChild(card);
