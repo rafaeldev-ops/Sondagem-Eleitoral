@@ -2,7 +2,11 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      # Publicado só em loopback, como "db" e "redis" abaixo: em produção o
+      # Nginx faz proxy_pass para 127.0.0.1:8000 e termina o TLS. Publicar em
+      # 0.0.0.0 aqui exporia o uvicorn direto na internet, sem reverse proxy
+      # e sem HTTPS, numa VPS com a porta aberta.
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     volumes:
