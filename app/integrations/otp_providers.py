@@ -46,7 +46,7 @@ class TwilioOTPProvider(OTPProvider):
         try:
             client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
             message = client.messages.create(
-                body=f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+                body=f"Código de verificação para a Sondagem: {code}",
                 from_=settings.twilio_from_number,
                 to=f"+55{phone}",
             )
@@ -71,7 +71,7 @@ class ZenviaOTPProvider(OTPProvider):
             "contents": [
                 {
                     "type": "text",
-                    "text": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+                    "text": f"Código de verificação para a Sondagem: {code}",
                 }
             ],
         }
@@ -95,7 +95,7 @@ class ZAPIOTPProvider(OTPProvider):
         headers = {"Client-Token": settings.zapi_client_token}
         payload = {
             "phone": f"55{phone}",
-            "message": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+            "message": f"Código de verificação para a Sondagem: {code}",
         }
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -125,7 +125,7 @@ class VonageOTPProvider(OTPProvider):
             "api_secret": settings.vonage_api_secret,
             "to": f"55{phone}",
             "from": settings.vonage_from,
-            "text": f"Seu código de verificação é: {code}. Válido por 5 minutos.",
+            "text": f"Código de verificação para a Sondagem: {code}",
             # Sem isto a Vonage manda em GSM-7, que não tem "ó", "çã" nem "á"
             # no alfabeto básico — cada um vira "?" na tela do associado
             # ("c?digo", "verifica??o", "V?lido"). A mensagem tem ~60
