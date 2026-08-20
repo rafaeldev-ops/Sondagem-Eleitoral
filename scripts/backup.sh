@@ -14,9 +14,18 @@ set -euo pipefail
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 
-if [ -f .env ]; then
-    # shellcheck disable=SC1091
-    set -a && . ./.env && set +a
+# Lê só as duas variáveis necessárias, com grep — sem interpretar o .env
+# como script. Com `. ./.env` sob `set -u` o .env de produção derruba o
+# backup de duas formas: ADMIN_PASSWORD é um hash bcrypt e todo hash
+# começa com "$2b$", que o shell expande como parâmetro posicional
+# ($2 unbound); e APP_NAME tem espaços sem aspas, então a segunda palavra
+# vira um comando inexistente. Descoberto em produção em 20/08/2026 — até
+# aqui nenhum backup havia rodado na VPS.
+if [ -f .env ] && [ -z "${POSTGRES_USER:-}" ]; then
+    POSTGRES_USER=$(grep -m1 '^POSTGRES_USER=' .env | cut -d= -f2-)
+fi
+if [ -f .env ] && [ -z "${POSTGRES_DB:-}" ]; then
+    POSTGRES_DB=$(grep -m1 '^POSTGRES_DB=' .env | cut -d= -f2-)
 fi
 
 : "${POSTGRES_USER:?defina POSTGRES_USER (no .env ou no ambiente)}"
