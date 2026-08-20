@@ -11,8 +11,15 @@ venv/
 # do git não sai mais — nem apagando o arquivo num commit seguinte.
 # O `pg_dump -t webhook_logs` recomendado antes da migration 008 cai
 # exatamente aqui.
+#
+# `*.sql` sozinho não pegava o que o scripts/backup.sh realmente produz:
+# ele grava `backups/backup-<timestamp>.sql.gz`, e na VPS esses arquivos
+# apareciam como não-rastreados, a um `git add -A` de entrar num repositório
+# público. Daí `*.sql.gz` e o diretório inteiro abaixo.
 *.sql
+*.sql.gz
 *.dump
+backups/
 
 .pytest_cache/
 .mypy_cache/
