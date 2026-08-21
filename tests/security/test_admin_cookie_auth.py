@@ -22,13 +22,14 @@ import pytest
 import pytest_asyncio
 
 from app.core.security import ADMIN_CSRF_COOKIE, ADMIN_TOKEN_COOKIE
+from tests.conftest import PATH_PREFIX
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def login_response(_live_server):
     """Um único login real por sessão — ver nota sobre rate limit acima."""
     base_url, _ = _live_server
-    async with httpx.AsyncClient(base_url=base_url, timeout=10) as ac:
+    async with httpx.AsyncClient(base_url=f"{base_url}{PATH_PREFIX}", timeout=10) as ac:
         res = await ac.post(
             "/api/admin/login", json={"username": "admin", "password": "admin123"}
         )
@@ -49,7 +50,9 @@ async def cliente_com_cookies(_live_server):
     criados = []
 
     def _make(**cookies):
-        ac = httpx.AsyncClient(base_url=base_url, timeout=10, cookies=cookies)
+        ac = httpx.AsyncClient(
+            base_url=f"{base_url}{PATH_PREFIX}", timeout=10, cookies=cookies
+        )
         criados.append(ac)
         return ac
 

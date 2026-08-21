@@ -61,6 +61,14 @@ async def admin_login(
     # a aplicação trata CPF e telefone (ver docs/PRODUCAO.md, seção 2).
     secure = settings.https_only
 
+    # Path escopado no prefixo da aplicação (vazio vira "/", que é o
+    # comportamento de antes). Com o site institucional ocupando a raiz do
+    # mesmo domínio, Path=/ mandaria estes cookies também nas requisições
+    # dele: o de sessão é httpOnly, mas ainda assim viajaria para uma
+    # aplicação que não é esta, e o de CSRF é legível por qualquer script
+    # servido de lá.
+    cookie_path = settings.app_path_prefix or "/"
+
     response.set_cookie(
         ADMIN_TOKEN_COOKIE,
         token,
@@ -68,7 +76,7 @@ async def admin_login(
         httponly=True,
         secure=secure,
         samesite="strict",
-        path="/",
+        path=cookie_path,
     )
     # Este NÃO é httpOnly de propósito: o admin.js precisa ler o valor
     # para reenviá-lo no header X-CSRF-Token. Não é credencial — sozinho
@@ -81,7 +89,7 @@ async def admin_login(
         httponly=False,
         secure=secure,
         samesite="strict",
-        path="/",
+        path=cookie_path,
     )
 
     # O token continua no corpo para não quebrar quem autentica por bearer
@@ -100,8 +108,11 @@ async def admin_logout(response: Response) -> dict:
     consegue limpar. Não valida CSRF pelo mesmo motivo — o pior que um
     CSRF consegue nesta rota é deslogar a vítima.
     """
-    response.delete_cookie(ADMIN_TOKEN_COOKIE, path="/")
-    response.delete_cookie(ADMIN_CSRF_COOKIE, path="/")
+    # Mesmo path do set_cookie: o navegador só apaga o cookie se o path
+    # bater, então divergir aqui deixaria a sessão viva depois do "Sair".
+    cookie_path = get_settings().app_path_prefix or "/"
+    response.delete_cookie(ADMIN_TOKEN_COOKIE, path=cookie_path)
+    response.delete_cookie(ADMIN_CSRF_COOKIE, path=cookie_path)
     return {"message": "Sessão encerrada"}
 
 
@@ -174,6 +185,39 @@ async def update_candidato(
         raise HTTPException(status_code=404, detail="Candidato não encontrado")
 
     return {"message": "Candidato atualizado"}
+
+
+@router.delete("/candidatos/{candidato_id}")
+async def delete_candidato(
+    candidato_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_admin_token),
+) -> dict:
+    """
+    Remove um candidato do banco de vez.
+
+    Existe para o caso de cadastro errado ou duplicado — não para tirar
+    alguém da sondagem depois que ela começou. Candidato que já recebeu
+    voto ou escolha de ponto focal é recusado com 409 e a instrução de
+    desativar, que preserva a apuração.
+    """
+    service = AdminService(db)
+    resultado = await service.delete_candidato(candidato_id)
+
+    if resultado is None:
+        raise HTTPException(status_code=404, detail="Candidato não encontrado")
+
+    if resultado is False:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Candidato já recebeu voto ou foi escolhido como ponto focal "
+                "e não pode ser excluído. Desative-o para tirá-lo da sondagem "
+                "sem apagar os votos já registrados."
+            ),
+        )
+
+    return {"message": "Candidato excluído"}
 
 
 @router.get("/search")

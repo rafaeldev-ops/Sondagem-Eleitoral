@@ -114,6 +114,33 @@ class CandidatoRepository:
         await self.db.flush()
         return candidato
 
+    async def delete(self, candidato: Candidato) -> None:
+        await self.db.delete(candidato)
+        await self.db.flush()
+
+    async def count_referencias(self, candidato_id: int) -> int:
+        """
+        Quantas linhas de OUTRAS tabelas apontam para este candidato:
+        votos (respostas) mais escolhas de ponto focal (preferencias).
+
+        As duas somadas, e não só as respostas, porque as duas têm foreign
+        key para candidatos e uma preferência pode existir sem que haja
+        resposta para o mesmo candidato. Checar só uma delas deixaria a
+        exclusão estourar a foreign key no banco — 500 opaco no lugar da
+        mensagem que explica o que fazer.
+        """
+        votos = await self.db.execute(
+            select(func.count()).select_from(Resposta).where(
+                Resposta.candidato_id == candidato_id
+            )
+        )
+        focais = await self.db.execute(
+            select(func.count()).select_from(Preferencia).where(
+                Preferencia.candidato_preferido_id == candidato_id
+            )
+        )
+        return votos.scalar_one() + focais.scalar_one()
+
     async def count_active(self) -> int:
         result = await self.db.execute(
             select(func.count()).select_from(Candidato).where(Candidato.ativo.is_(True))

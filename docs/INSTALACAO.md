@@ -83,6 +83,14 @@ docker compose exec app alembic upgrade head
 
 Acesse http://localhost:8000/admin e adicione os candidatos com fotos.
 
+Cada candidato na lista tem **Editar** (nome, apelido e foto), **Excluir** e
+o botão de ativar/desativar. Excluir só funciona enquanto o candidato não
+tiver recebido voto; depois disso o painel recusa e manda desativar, para
+não apagar voto de sócio junto.
+
+Com `APP_PATH_PREFIX` preenchido, o painel acompanha o prefixo —
+`http://localhost:8000/pesquisa2026/admin`.
+
 ## Instalação manual
 
 ```bash

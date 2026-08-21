@@ -1,6 +1,15 @@
 # Testes automatizados
 
-114 testes, três camadas: `tests/unit/`, `tests/integration/`, `tests/security/`.
+237 testes, três camadas: `tests/unit/`, `tests/integration/`, `tests/security/`.
+
+A suíte roda contra a aplicação montada sob prefixo (`APP_PATH_PREFIX`, que
+o `conftest.py` define como `/pesquisa2026`), porque é assim que ela roda em
+produção: as fixtures `client` e `admin_token` montam a base_url com o
+prefixo, então qualquer rota que esqueça de entrar nele aparece como 404
+aqui e não no servidor. Para exercitar o modo "montado na raiz", que
+continua suportado e é o default do `.env.example`, rode com
+`APP_PATH_PREFIX=""` — os testes específicos de prefixo se marcam como
+skipped.
 
 ## Rodando localmente
 

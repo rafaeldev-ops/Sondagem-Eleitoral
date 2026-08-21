@@ -74,6 +74,14 @@ os.environ.setdefault("TRUST_PROXY_HEADERS", "false")
 os.environ.setdefault("HTTPS_ONLY", "false")
 os.environ.setdefault("UPLOAD_DIR", "uploads/candidatos")
 os.environ.setdefault("MAX_UPLOAD_SIZE_MB", "5")
+# A suíte inteira roda contra o app montado sob prefixo, e não na raiz,
+# porque é assim que ele roda em produção desde a mudança para
+# /pesquisa2026. Se o prefixo só existisse no .env do servidor, nenhum
+# teste exerceria o caminho real: as fixtures `client` e `admin_token`
+# abaixo montam a base_url com este valor, então qualquer rota que
+# esqueça de entrar no prefixo aparece como 404 na suíte, não em
+# produção.
+os.environ.setdefault("APP_PATH_PREFIX", "/pesquisa2026")
 
 import itertools
 import re
@@ -97,6 +105,11 @@ from app.database.base import Base
 # processo de teste nunca importa app.main, que é quem transitivamente
 # importaria app.models via as rotas/repositories no processo do servidor).
 import app.models  # noqa: F401,E402
+
+# Lido do ambiente (e não fixo como "/pesquisa2026") para que mudar a
+# variável acima seja suficiente: as URLs dos testes não repetem o
+# prefixo em lugar nenhum.
+PATH_PREFIX = os.environ["APP_PATH_PREFIX"]
 
 
 def _free_port() -> int:
@@ -220,6 +233,21 @@ async def _clean_redis():
 async def client(_live_server):
     """Cliente HTTP assíncrono contra o servidor real de teste (rede local,
     não in-process) — ver _live_server acima para o motivo da escolha."""
+    base_url, _ = _live_server
+    async with httpx.AsyncClient(base_url=f"{base_url}{PATH_PREFIX}", timeout=10) as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def root_client(_live_server):
+    """
+    Cliente apontado para a RAIZ do servidor, sem o prefixo da aplicação.
+
+    Existe para os poucos testes que precisam afirmar o que acontece fora
+    de /pesquisa2026: que a sondagem não responde mais na raiz (o domínio
+    passou a ser reservado para outro site) e que /health continua lá,
+    porque é nele que o HEALTHCHECK do container bate.
+    """
     base_url, _ = _live_server
     async with httpx.AsyncClient(base_url=base_url, timeout=10) as ac:
         yield ac
@@ -345,7 +373,7 @@ async def admin_token(_live_server):
     fixture.
     """
     base_url, _ = _live_server
-    async with httpx.AsyncClient(base_url=base_url, timeout=10) as ac:
+    async with httpx.AsyncClient(base_url=f"{base_url}{PATH_PREFIX}", timeout=10) as ac:
         res = await ac.post(
             "/api/admin/login", json={"username": "admin", "password": "admin123"}
         )

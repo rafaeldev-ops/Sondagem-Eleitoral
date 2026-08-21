@@ -29,6 +29,14 @@ Acesse:
 - **Admin:** http://localhost:8000/admin
 - **API Docs:** http://localhost:8000/api/docs
 
+Os caminhos acima valem com `APP_PATH_PREFIX` vazio, que é o default de
+desenvolvimento. Em produção a aplicação é servida sob um prefixo
+(`APP_PATH_PREFIX=/pesquisa2026`), e tudo desloca junto:
+`https://sempretricolor.org/pesquisa2026` e
+`https://sempretricolor.org/pesquisa2026/admin`. A raiz do domínio está
+reservada para o site institucional — a sondagem é provisória e fica no ar
+até o fim de novembro de 2026.
+
 ### 3. Desenvolvimento local (sem Docker)
 
 ```bash
