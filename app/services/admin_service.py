@@ -85,6 +85,34 @@ class AdminService:
 
         return await self.candidato_repo.update(candidato)
 
+    async def delete_candidato(self, candidato_id: int) -> bool | None:
+        """
+        Apaga um candidato. Devolve None se ele não existe, False se já tem
+        voto ou escolha de ponto focal (e por isso não pode ser apagado), e
+        True quando apagou.
+
+        Candidato votado não se apaga, se desativa: a sondagem é o registro
+        de uma apuração, e sumir com a linha levaria junto — ou deixaria
+        órfão — o voto que um sócio de fato deu. Quem precisa sair da tela
+        depois de já ter recebido voto continua tendo o "Desativar", que é
+        o caminho certo.
+
+        A foto em disco fica onde está de propósito: ela não é referenciada
+        por mais nada depois daqui, mas apagar arquivo é irreversível e
+        UPLOAD_DIR é um volume compartilhado. Órfão em disco custa alguns
+        KB; apagar o arquivo errado custa o retrabalho de pedir a foto de
+        volta ao candidato.
+        """
+        candidato = await self.candidato_repo.get_by_id(candidato_id)
+        if not candidato:
+            return None
+
+        if await self.candidato_repo.count_referencias(candidato_id):
+            return False
+
+        await self.candidato_repo.delete(candidato)
+        return True
+
     async def _save_photo(self, foto: UploadFile) -> str:
         ext = Path(foto.filename or "").suffix.lower()
         if ext not in self.ALLOWED_EXTENSIONS:

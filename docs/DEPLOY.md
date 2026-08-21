@@ -78,6 +78,82 @@ sudo certbot --nginx -d seu-dominio -d www.seu-dominio \
   --non-interactive --agree-tos -m seu-email@exemplo.com
 ```
 
+### 4b. Aplicar o prefixo /pesquisa2026 num servidor que JÁ tem TLS
+
+A sondagem não mora mais na raiz do domínio: ela é servida sob
+`/pesquisa2026`, e a raiz fica reservada para o site institucional.
+
+**Não copie `deploy/nginx/sempretricolor.org.conf` por cima do arquivo do
+servidor que já passou pelo certbot.** O certbot reescreveu aquele arquivo
+com os blocos 443, o caminho do certificado e o redirect de 80 para 443 —
+nada disso está no repositório, e sobrescrever derruba o HTTPS do site.
+
+Num servidor já configurado, edite o arquivo de lá e mexa só nos
+`location` do bloco `server` que escuta 443:
+
+```bash
+sudo nano /etc/nginx/sites-available/sempretricolor.org
+```
+
+Dentro do `server { listen 443 ssl; ... }`, troque o `location /` que
+existe hoje por estes três:
+
+```nginx
+    # PROVISÓRIO: enquanto o site institucional não existe, a raiz leva
+    # para a sondagem (o link já circulou como sempretricolor.org).
+    # Apague quando o site institucional subir.
+    location = / {
+        return 302 /pesquisa2026/;
+    }
+
+    # Sem barra no fim: o prefixo precisa chegar inteiro na aplicação.
+    location /pesquisa2026 {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        return 404;
+    }
+```
+
+E no `.env` da aplicação, o prefixo do outro lado — os dois PRECISAM
+concordar, senão o Nginx encaminha um caminho que nenhuma rota atende:
+
+```bash
+cd /opt/sempretricolor
+
+# APP_PATH_PREFIX: acrescenta se não existir, troca se já existir
+grep -q '^APP_PATH_PREFIX=' .env \
+  && sed -i 's|^APP_PATH_PREFIX=.*|APP_PATH_PREFIX=/pesquisa2026|' .env \
+  || echo 'APP_PATH_PREFIX=/pesquisa2026' >> .env
+
+# ALLOWED_ORIGINS é uma ORIGEM, não uma URL: sem barra no fim, senão a
+# comparação do CORS nunca casa
+sed -i 's|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://sempretricolor.org|' .env
+
+docker compose up -d --build app
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Verifique os dois lados antes de avisar os sócios:
+
+```bash
+curl -f http://localhost:8000/health                           # raiz, de dentro do container
+curl -sI https://sempretricolor.org/ | head -1                 # 302 para /pesquisa2026/
+curl -f https://sempretricolor.org/pesquisa2026/               # fluxo público
+curl -f https://sempretricolor.org/pesquisa2026/admin          # painel
+curl -sI https://sempretricolor.org/qualquer-outra | head -1   # 404
+```
+
+O `/health` continua respondendo **na raiz** de propósito: é lá que o
+HEALTHCHECK do container bate, de dentro, sem passar pelo Nginx. Ele
+também responde em `/pesquisa2026/health`, que é o endereço para um
+monitor externo de uptime — pelo domínio, a raiz não é mais nossa.
+
 ### 4. Reverse Proxy (Nginx)
 
 ```nginx

@@ -57,7 +57,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Respostas da API admin podem conter dados de associados (CPF,
         # telefone) — nunca devem ficar em cache do navegador/proxy.
-        if request.url.path.startswith("/api/admin"):
+        #
+        # O prefixo entra na comparação porque o caminho que chega aqui é o
+        # caminho REAL da requisição: com APP_PATH_PREFIX=/pesquisa2026 ele
+        # é "/pesquisa2026/api/admin/search", que não começa com
+        # "/api/admin". Sem isto o header simplesmente parava de ser
+        # aplicado em produção — silenciosamente, porque nada quebra: a
+        # resposta continua correta, só passa a poder ficar em cache.
+        if request.url.path.startswith(f"{settings.app_path_prefix}/api/admin"):
             response.headers["Cache-Control"] = "no-store"
 
         if settings.https_only:

@@ -14,6 +14,17 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="SEMPRE TRICOLOR", alias="APP_NAME")
     app_env: str = Field(default="development", alias="APP_ENV")
+    # Caminho em que a aplicação inteira é montada dentro do domínio.
+    #
+    # Vazio = raiz, que era o comportamento até sempretricolor.org passar a
+    # ser reservado para o site institucional. Em produção vale
+    # "/pesquisa2026": a sondagem é provisória (vai ao ar até o fim de
+    # novembro) e precisa conviver com outro site no mesmo domínio.
+    #
+    # Ficar em variável, e não chumbado no código, é o que torna o fim da
+    # sondagem — ou uma eventual /pesquisa2027 — uma troca de .env em vez
+    # de um patch em rota, template e JavaScript.
+    app_path_prefix: str = Field(default="", alias="APP_PATH_PREFIX")
     debug: bool = Field(default=False, alias="DEBUG")
     secret_key: str = Field(alias="SECRET_KEY")
     allowed_origins: str = Field(
@@ -102,6 +113,24 @@ class Settings(BaseSettings):
 
     upload_dir: str = Field(default="uploads/candidatos", alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=5, alias="MAX_UPLOAD_SIZE_MB")
+
+    @model_validator(mode="after")
+    def _normalizar_path_prefix(self) -> "Settings":
+        """
+        Aceita "pesquisa2026", "/pesquisa2026" e "/pesquisa2026/" como a
+        mesma coisa, guardando sempre a forma canônica "/pesquisa2026"
+        (barra no início, nenhuma no fim).
+
+        Sem isso, cada ponto de uso teria que decidir sozinho se concatena
+        uma barra — e basta um discordar para o app montar rota em
+        "//pesquisa2026" ou o template gerar "/pesquisa2026//static".
+        A raiz continua sendo representada por string vazia, e não por
+        "/", justamente para que a concatenação `prefixo + "/static"`
+        funcione nos dois casos sem ramificação.
+        """
+        prefixo = self.app_path_prefix.strip().strip("/")
+        object.__setattr__(self, "app_path_prefix", f"/{prefixo}" if prefixo else "")
+        return self
 
     @model_validator(mode="after")
     def _validar_admin_password_hash(self) -> "Settings":

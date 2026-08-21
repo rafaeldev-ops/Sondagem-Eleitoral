@@ -1,8 +1,17 @@
 # Documentação da API
 
-Base URL: `/api`
+Base URL: `<APP_PATH_PREFIX>/api`
+
+O prefixo é o caminho em que a aplicação está montada no domínio: vazio em
+desenvolvimento (`/api/survey/...`) e `/pesquisa2026` em produção
+(`https://sempretricolor.org/pesquisa2026/api/survey/...`). Os caminhos
+listados abaixo são todos relativos a essa base.
 
 Autenticação admin: `Authorization: Bearer <token>`
+
+O painel no navegador autentica por cookie httpOnly e manda o header
+`X-CSRF-Token` nos métodos que alteram estado — o bearer acima é para
+clientes fora do navegador (curl, scripts).
 
 ## Endpoints Públicos (Sondagem)
 
@@ -189,6 +198,25 @@ Cria candidato (multipart/form-data).
 ### PUT `/admin/candidatos/{id}`
 
 Atualiza candidato (multipart/form-data).
+
+---
+
+### DELETE `/admin/candidatos/{id}`
+
+Remove um candidato do banco definitivamente. Serve para cadastro errado
+ou duplicado, não para tirar alguém da sondagem em andamento.
+
+**Response 200:**
+```json
+{ "message": "Candidato excluído" }
+```
+
+**Response 404:** candidato não encontrado.
+
+**Response 409:** o candidato já recebeu voto ou foi escolhido como ponto
+focal. Nesse caso ele não pode ser apagado — apagar levaria junto o voto
+que um sócio de fato deu. Use `PUT` com `ativo=false` para tirá-lo da
+sondagem preservando a apuração.
 
 ---
 

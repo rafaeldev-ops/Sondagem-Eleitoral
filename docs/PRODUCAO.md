@@ -62,21 +62,28 @@ docker compose up -d
 docker compose exec app alembic upgrade head
 
 # 5. Verificação pós-deploy
-curl -f https://seu-dominio/health          # liveness
-curl -f https://seu-dominio/health/ready    # readiness: DB + Redis
+#
+# A aplicação é servida sob APP_PATH_PREFIX (/pesquisa2026 em produção) —
+# a raiz do domínio pertence ao site institucional. Todos os caminhos
+# abaixo levam o prefixo, exceto o /health "de dentro" do container.
+curl -f https://seu-dominio/pesquisa2026/health          # liveness
+curl -f https://seu-dominio/pesquisa2026/health/ready    # readiness: DB + Redis
 # As páginas renderizadas NÃO são cobertas pelos dois acima — /health não
 # toca template nenhum. Já houve uma regressão em que os dois respondiam
 # 200 com as duas páginas devolvendo 500 (ver seção 10).
-curl -f https://seu-dominio/                # fluxo público
-curl -f https://seu-dominio/admin           # painel admin
+curl -f https://seu-dominio/pesquisa2026/                # fluxo público
+curl -f https://seu-dominio/pesquisa2026/admin           # painel admin
+curl -sI https://seu-dominio/qualquer-outra | head -1    # 404: raiz não é nossa
 ```
 
 **Checklist de verificação pós-deploy:**
 
-- [ ] `/health` responde 200
-- [ ] `/health/ready` responde 200 com `database: true` e `redis: true`
-- [ ] `/` e `/admin` respondem 200 (não basta o `/health`)
-- [ ] `/api/docs` responde **404** (confirma `DEBUG=false`)
+- [ ] `/pesquisa2026/health` responde 200
+- [ ] `/pesquisa2026/health/ready` responde 200 com `database: true` e `redis: true`
+- [ ] `/pesquisa2026/` e `/pesquisa2026/admin` respondem 200 (não basta o `/health`)
+- [ ] Um caminho qualquer fora do prefixo responde 404 (a sondagem não vazou para a raiz)
+- [ ] `APP_PATH_PREFIX` no `.env` e o `location` do Nginx dizem a MESMA coisa
+- [ ] `/pesquisa2026/api/docs` responde **404** (confirma `DEBUG=false`)
 - [ ] Página inicial carrega e lista os candidatos
 - [ ] Um cadastro de teste recebe SMS de verdade
 - [ ] Logs saem em JSON com `request_id` preenchido
@@ -313,7 +320,7 @@ conferido:
 | `docker compose build` (multi-stage com venv em `/opt/venv`) | ✅ |
 | `docker compose up -d` — os 3 serviços sobem e ficam `healthy` | ✅ |
 | `docker compose exec app alembic upgrade head` (001 e 002) | ✅ |
-| `curl -f http://localhost:8000/health` | ✅ `{"status":"ok"}` |
+| `curl -f http://localhost:8000/health` | ✅ `{"status":"ok"}` (raiz: é onde o HEALTHCHECK bate) |
 | `curl -f http://localhost:8000/health/ready` | ✅ `database: true, redis: true` |
 | `docker compose exec app whoami` | ✅ `app` (uid 999, **não** root) |
 | `gcc` e headers do `libpq-dev` ausentes na imagem final | ✅ (ficaram no stage de build) |
@@ -350,9 +357,11 @@ cp .env.example .env    # preencha POSTGRES_USER/PASSWORD, REDIS_PASSWORD, SECRE
 docker compose build
 docker compose up -d
 docker compose exec app alembic upgrade head
+# De dentro do container não há Nginx nem prefixo no /health — é assim que
+# o HEALTHCHECK do compose bate. As PÁGINAS, sim, moram sob o prefixo.
 curl -f http://localhost:8000/health
 curl -f http://localhost:8000/health/ready
-curl -f http://localhost:8000/          # não pule este
-curl -f http://localhost:8000/admin     # nem este
+curl -f http://localhost:8000/pesquisa2026/          # não pule este
+curl -f http://localhost:8000/pesquisa2026/admin     # nem este
 docker compose exec app whoami          # precisa responder "app"
 ```

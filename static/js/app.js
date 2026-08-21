@@ -1,5 +1,20 @@
 /* Sondagem Clube - Frontend Application */
 
+// Prefixo em que a aplicação está montada no domínio ("/pesquisa2026" em
+// produção, "" quando servida na raiz). Vem de um atributo no <html>, e
+// não de um <script> inline com a variável, porque a CSP da aplicação não
+// permite 'unsafe-inline' em script-src — script inline seria bloqueado
+// pelo navegador e nenhuma chamada sairia.
+//
+// Toda URL da aplicação passa por api(): com o site institucional na raiz
+// do mesmo domínio, um caminho absoluto esquecido aqui não dá erro óbvio,
+// ele bate no OUTRO site e volta 404 ou HTML.
+const BASE_PATH = document.documentElement.dataset.basePath || '';
+
+function api(caminho) {
+    return `${BASE_PATH}${caminho}`;
+}
+
 const state = {
     step: 1,
     sessionToken: null,
@@ -147,7 +162,7 @@ function maskPhoneDisplay(digits) {
 }
 
 async function validateCPFRemote(cpf) {
-    const res = await fetch('/api/survey/validate-cpf', {
+    const res = await fetch(api('/api/survey/validate-cpf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cpf: normalizeCPF(cpf) }),
@@ -240,7 +255,7 @@ document.getElementById('cadastroForm').addEventListener('submit', async (e) => 
 
     try {
         const recaptchaToken = await getRecaptchaToken();
-        const res = await fetch('/api/survey/register', {
+        const res = await fetch(api('/api/survey/register'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -319,7 +334,7 @@ document.getElementById('otpForm').addEventListener('submit', async (e) => {
     }
 
     try {
-        const res = await fetch('/api/survey/verify-otp', {
+        const res = await fetch(api('/api/survey/verify-otp'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -343,7 +358,7 @@ document.getElementById('otpForm').addEventListener('submit', async (e) => {
 
 document.getElementById('btnResend').addEventListener('click', async () => {
     try {
-        const res = await fetch('/api/survey/resend-otp', {
+        const res = await fetch(api('/api/survey/resend-otp'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -362,7 +377,7 @@ document.getElementById('btnResend').addEventListener('click', async () => {
 });
 
 async function loadCandidatos() {
-    const res = await fetch('/api/survey/candidatos');
+    const res = await fetch(api('/api/survey/candidatos'));
     state.candidatos = await res.json();
 
     document.getElementById('maxCandidatos').textContent = MAX_CANDIDATOS;
@@ -373,7 +388,9 @@ async function loadCandidatos() {
     state.candidatos.forEach(c => {
         const nome = escapeHtml(c.nome);
         const apelido = escapeHtml(c.apelido);
-        const foto = escapeHtml(c.foto);
+        // c.foto vem do banco como "/uploads/<arquivo>", relativo à
+        // aplicação — o prefixo do domínio entra aqui, não no banco.
+        const foto = escapeHtml(api(c.foto || ''));
 
         const card = document.createElement('div');
         card.className = 'candidato-card';
@@ -466,7 +483,9 @@ function renderFocal() {
     escolhidos.forEach(c => {
         const nome = escapeHtml(c.nome);
         const apelido = escapeHtml(c.apelido);
-        const foto = escapeHtml(c.foto);
+        // c.foto vem do banco como "/uploads/<arquivo>", relativo à
+        // aplicação — o prefixo do domínio entra aqui, não no banco.
+        const foto = escapeHtml(api(c.foto || ''));
         const marcado = state.preferidoId === c.id;
 
         const card = document.createElement('div');
@@ -526,7 +545,7 @@ document.getElementById('btnFocal').addEventListener('click', () => {
 });
 
 async function loadDepartamentos() {
-    const res = await fetch('/api/survey/departamentos');
+    const res = await fetch(api('/api/survey/departamentos'));
     state.departamentos = await res.json();
     renderDepartamentos();
 }
@@ -617,7 +636,7 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
     btn.disabled = true;
 
     try {
-        const res = await fetch('/api/survey/submit', {
+        const res = await fetch(api('/api/survey/submit'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

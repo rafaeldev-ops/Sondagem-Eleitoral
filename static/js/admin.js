@@ -6,6 +6,15 @@
 // O que este arquivo lê é o cookie de CSRF, que é legível de propósito e
 // não autentica nada sozinho — ver validate_csrf() em app/api/deps.py.
 
+// Prefixo em que o painel está montado no domínio ("/pesquisa2026" em
+// produção). Vem de atributo no <html> pelo mesmo motivo do app.js: a CSP
+// não permite <script> inline para declarar a variável.
+const BASE_PATH = document.documentElement.dataset.basePath || '';
+
+function api(caminho) {
+    return `${BASE_PATH}${caminho}`;
+}
+
 const loginSection = document.getElementById('loginSection');
 const dashboardSection = document.getElementById('dashboardSection');
 const btnLogout = document.getElementById('btnLogout');
@@ -45,7 +54,7 @@ function showLogin() {
 
 async function logout() {
     // Só o servidor consegue apagar o cookie httpOnly.
-    await fetch('/api/admin/logout', { method: 'POST', headers: csrfHeaders() });
+    await fetch(api('/api/admin/logout'), { method: 'POST', headers: csrfHeaders() });
     showLogin();
 }
 
@@ -53,7 +62,7 @@ async function logout() {
 // servidor: se o cookie ainda vale, /stats responde 200. Isso também
 // cobre o caso do JWT ter expirado com o cookie ainda presente.
 async function init() {
-    const res = await fetch('/api/admin/stats');
+    const res = await fetch(api('/api/admin/stats'));
     if (res.ok) {
         showDashboard();
     } else {
@@ -65,7 +74,7 @@ init();
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/admin/login', {
+    const res = await fetch(api('/api/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +98,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 btnLogout.addEventListener('click', logout);
 
 async function loadStats() {
-    const res = await fetch('/api/admin/stats');
+    const res = await fetch(api('/api/admin/stats'));
     if (!res.ok) return showLogin();
     const data = await res.json();
     document.getElementById('statRespostas').textContent = data.total_respostas;
@@ -98,7 +107,7 @@ async function loadStats() {
 }
 
 async function loadCandidatos() {
-    const res = await fetch('/api/admin/candidatos');
+    const res = await fetch(api('/api/admin/candidatos'));
     if (!res.ok) return;
     const candidatos = await res.json();
 
@@ -106,7 +115,7 @@ async function loadCandidatos() {
     list.innerHTML = candidatos.map(c => {
         const nome = escapeHtml(c.nome);
         const apelido = escapeHtml(c.apelido);
-        const foto = escapeHtml(c.foto || '/static/img/placeholder.svg');
+        const foto = escapeHtml(api(c.foto || '/static/img/placeholder.svg'));
         return `
         <div class="card mb-2">
             <div class="candidato-admin-item">
@@ -120,6 +129,17 @@ async function loadCandidatos() {
                         data-next-ativo="${!c.ativo}">
                     ${c.ativo ? 'Desativar' : 'Ativar'}
                 </button>
+                <button class="btn btn-sm btn-outline-primary"
+                        data-editar-candidato="${c.id}"
+                        data-nome="${nome}"
+                        data-apelido="${apelido}">
+                    Editar
+                </button>
+                <button class="btn btn-sm btn-outline-danger"
+                        data-excluir-candidato="${c.id}"
+                        data-nome="${nome}">
+                    Excluir
+                </button>
             </div>
         </div>
     `;
@@ -132,21 +152,103 @@ async function loadCandidatos() {
 // afrouxar a CSP, o que reabriria parte do que a correção de XSS acabou de
 // fechar. Um único listener no container resolve sem esse trade-off.
 document.getElementById('candidatosList').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-toggle-candidato]');
-    if (!btn) return;
-    const id = btn.dataset.toggleCandidato;
-    const nextAtivo = btn.dataset.nextAtivo === 'true';
-    toggleCandidato(id, nextAtivo);
+    const toggle = e.target.closest('[data-toggle-candidato]');
+    if (toggle) {
+        toggleCandidato(toggle.dataset.toggleCandidato, toggle.dataset.nextAtivo === 'true');
+        return;
+    }
+
+    const editar = e.target.closest('[data-editar-candidato]');
+    if (editar) {
+        abrirEdicao(editar.dataset.editarCandidato, editar.dataset.nome, editar.dataset.apelido);
+        return;
+    }
+
+    const excluir = e.target.closest('[data-excluir-candidato]');
+    if (excluir) {
+        excluirCandidato(excluir.dataset.excluirCandidato, excluir.dataset.nome);
+    }
 });
 
 async function toggleCandidato(id, ativo) {
     const formData = new FormData();
     formData.append('ativo', ativo);
-    await fetch(`/api/admin/candidatos/${id}`, {
+    await fetch(api(`/api/admin/candidatos/${id}`), {
         method: 'PUT',
         headers: csrfHeaders(),
         body: formData,
     });
+    loadCandidatos();
+    loadStats();
+}
+
+const editCard = document.getElementById('editCandidatoCard');
+const editForm = document.getElementById('editCandidatoForm');
+
+function abrirEdicao(id, nome, apelido) {
+    document.getElementById('editCandidatoId').value = id;
+    document.getElementById('editCandidatoNome').value = nome;
+    document.getElementById('editCandidatoApelido').value = apelido;
+    // Zera o campo de arquivo ao reabrir: sem isso, editar o candidato A com
+    // foto e depois o B enviaria a foto do A junto com os dados do B.
+    document.getElementById('editCandidatoFoto').value = '';
+    editCard.classList.remove('d-none');
+    editCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function fecharEdicao() {
+    editForm.reset();
+    editCard.classList.add('d-none');
+}
+
+document.getElementById('editCandidatoCancelar').addEventListener('click', fecharEdicao);
+
+editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editCandidatoId').value;
+    const formData = new FormData(editForm);
+    // O id viaja na URL, não no corpo — a rota não tem esse campo e o
+    // FastAPI recusaria o Form extra.
+    formData.delete('id');
+    // Campo de arquivo vazio vira um File de nome "" e tamanho 0. Enviado
+    // assim, o backend ainda o trata como upload e sobrescreve a foto atual
+    // por um arquivo vazio; a correção de um apelido apagaria a foto.
+    const foto = formData.get('foto');
+    if (!foto || !foto.name) formData.delete('foto');
+
+    const res = await fetch(api(`/api/admin/candidatos/${id}`), {
+        method: 'PUT',
+        headers: csrfHeaders(),
+        body: formData,
+    });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.detail || 'Erro ao salvar candidato');
+        return;
+    }
+
+    fecharEdicao();
+    loadCandidatos();
+    loadStats();
+});
+
+async function excluirCandidato(id, nome) {
+    if (!confirm(`Excluir ${nome} definitivamente? Esta ação não pode ser desfeita.`)) return;
+
+    const res = await fetch(api(`/api/admin/candidatos/${id}`), {
+        method: 'DELETE',
+        headers: csrfHeaders(),
+    });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // O 409 (candidato já votado) traz do servidor a explicação e o que
+        // fazer no lugar; mostrar essa mensagem é melhor do que um genérico.
+        alert(data.detail || 'Erro ao excluir candidato');
+        return;
+    }
+
     loadCandidatos();
     loadStats();
 }
@@ -156,7 +258,7 @@ document.getElementById('candidatoForm').addEventListener('submit', async (e) =>
     const form = e.target;
     const formData = new FormData(form);
 
-    const res = await fetch('/api/admin/candidatos', {
+    const res = await fetch(api('/api/admin/candidatos'), {
         method: 'POST',
         headers: csrfHeaders(),
         body: formData,
@@ -177,7 +279,7 @@ document.getElementById('btnSearch').addEventListener('click', async () => {
     const cpf = document.getElementById('searchCpf').value.replace(/\D/g, '');
     if (!cpf) return;
 
-    const res = await fetch(`/api/admin/search?cpf=${cpf}`);
+    const res = await fetch(api(`/api/admin/search?cpf=${cpf}`));
     const results = await res.json();
 
     const container = document.getElementById('searchResults');
@@ -207,7 +309,7 @@ document.getElementById('btnSearch').addEventListener('click', async () => {
 async function baixarExportacao(url, filename) {
     let res;
     try {
-        res = await fetch(url);
+        res = await fetch(api(url));
     } catch {
         alert('Não foi possível falar com o servidor. Verifique a conexão.');
         return;
